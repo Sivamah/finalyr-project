@@ -1,5 +1,5 @@
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 import json
@@ -91,25 +91,24 @@ def allocate_driver(db: Session, trip_id: int):
     booking_type = first_stop.get("booking_type")
     
     # 1. Fetch available drivers (online, not currently busy)
-    # Busy drivers have an active trip (Assigned, Accepted, In_Progress)
-    busy_driver_ids = db.query(models.Trip.id).join(models.BatchedTrip, models.Trip.batch_id == models.BatchedTrip.id).filter(
-        models.Trip.status.in_(["Assigned", "Accepted", "In_Progress"])
+    # Busy drivers: those assigned to an active BatchedTrip
+    busy_driver_ids = db.query(models.BatchedTrip.driver_id).filter(
+        models.BatchedTrip.status.in_(["Assigned", "Accepted", "In_Progress"]),
+        models.BatchedTrip.driver_id.isnot(None)
     ).subquery()
     
-    # Also drivers with pending assignments
+    # Also drivers with pending (non-expired) assignments
     pending_assignment_driver_ids = db.query(models.DriverAssignment.driver_id).filter(
         models.DriverAssignment.status == "Pending",
-        models.DriverAssignment.expires_at > datetime.utcnow()
+        models.DriverAssignment.expires_at > datetime.now(timezone.utc)
     ).subquery()
 
     available_drivers = db.query(models.DriverProfile, models.DriverLocation).join(
         models.DriverLocation, models.DriverProfile.user_id == models.DriverLocation.driver_id
     ).filter(
         models.DriverProfile.is_available == True,
+        ~models.DriverProfile.user_id.in_(busy_driver_ids),
         ~models.DriverProfile.user_id.in_(pending_assignment_driver_ids)
-        # Assuming we allow multiple trips if DMFE batsched them, but DMFE already groups bookings.
-        # If the driver already has an active trip, we probably shouldn't assign another unless it's a queued batched trip for them.
-        # For simplicity, we exclude drivers who have an active assignment.
     ).all()
 
     best_driver = None
@@ -146,7 +145,7 @@ def allocate_driver(db: Session, trip_id: int):
         driver_id=best_driver.user_id,
         status="Pending",
         score=best_score,
-        expires_at=datetime.utcnow() + timedelta(minutes=1) # 1 min to accept
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=1)  # 1 min to accept
     )
     db.add(assignment)
     
@@ -185,7 +184,7 @@ def respond_to_assignment(db: Session, assignment_id: int, driver_id: int, actio
     if assignment.status != "Pending":
         raise HTTPException(status_code=400, detail=f"Assignment already processed: {assignment.status}")
 
-    if assignment.expires_at < datetime.utcnow():
+    if assignment.expires_at < datetime.now(timezone.utc):
         assignment.status = "Expired"
         db.commit()
         raise HTTPException(status_code=400, detail="Assignment offer expired")
@@ -242,6 +241,6 @@ def update_driver_location(db: Session, driver_id: int, lat: float, lng: float):
     else:
         location.lat = lat
         location.lng = lng
-        location.last_updated = datetime.utcnow()
+        location.last_updated = datetime.now(timezone.utc)
     db.commit()
     return location

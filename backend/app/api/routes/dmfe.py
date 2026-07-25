@@ -110,10 +110,14 @@ async def update_batch_status(
         b.status = data.status
         customer_ids.add(b.customer_id)
 
+    # Commit status changes first to ensure data integrity
+    db.commit()
+
     if data.status == BookingStatus.Completed:
         profile = db.query(DriverProfile).filter(DriverProfile.user_id == current_user.id).first()
         if profile:
             profile.total_trips += 1
+            db.commit()
             
         for cid in customer_ids:
             await notification_service.notify_user(
@@ -131,7 +135,6 @@ async def update_batch_status(
                 notification_type="INFO"
             )
 
-    db.commit()
     return {"message": f"Batch status updated to {data.status}"}
 
 

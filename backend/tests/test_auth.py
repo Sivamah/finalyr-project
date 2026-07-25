@@ -1,6 +1,6 @@
 """Phase 9 — Authentication Tests"""
 
-from .conftest import auth_header, CUSTOMER_DATA, ADMIN_DATA
+from tests.conftest import auth_header, CUSTOMER_DATA, ADMIN_DATA
 
 
 class TestRegistration:
@@ -49,6 +49,7 @@ class TestLogin:
         res = client.post("/api/auth/login", json={
             "email": CUSTOMER_DATA["email"],
             "password": "WrongPassword!",
+            "role": "Customer",
         })
         assert res.status_code == 400
 
@@ -56,6 +57,7 @@ class TestLogin:
         res = client.post("/api/auth/login", json={
             "email": "nobody@test.com",
             "password": "whatever",
+            "role": "Customer",
         })
         assert res.status_code == 400
 

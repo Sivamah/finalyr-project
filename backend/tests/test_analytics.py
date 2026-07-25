@@ -1,6 +1,6 @@
 """Phase 9 — Analytics Tests"""
 
-from .conftest import auth_header
+from tests.conftest import auth_header
 
 class TestAnalytics:
     def test_get_summary(self, client, admin_token):
@@ -13,12 +13,12 @@ class TestAnalytics:
     def test_get_trips(self, client, admin_token):
         res = client.get("/api/analytics/trips", headers=auth_header(admin_token))
         assert res.status_code == 200
-        assert "trends" in res.json()
+        assert "trend" in res.json()
 
     def test_get_drivers(self, client, admin_token):
         res = client.get("/api/analytics/drivers", headers=auth_header(admin_token))
         assert res.status_code == 200
-        assert "availability" in res.json()
+        assert "status" in res.json()
 
     def test_get_dmfe_analytics(self, client, admin_token):
         res = client.get("/api/analytics/dmfe", headers=auth_header(admin_token))

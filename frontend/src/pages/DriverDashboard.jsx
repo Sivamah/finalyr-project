@@ -215,10 +215,10 @@ export default function DriverDashboard() {
     toast.success('Started simulated driving...');
     // Simulated path
     const mockPath = [
-      { lat: 12.9716, lng: 77.5946 },
-      { lat: 12.9720, lng: 77.5950 },
-      { lat: 12.9725, lng: 77.5960 },
-      { lat: 12.9730, lng: 77.5975 },
+      { lat: 11.0168, lng: 76.9558 },
+      { lat: 11.0180, lng: 76.9570 },
+      { lat: 11.0190, lng: 76.9585 },
+      { lat: 11.0200, lng: 76.9600 },
     ];
     let step = 0;
     const interval = setInterval(async () => {

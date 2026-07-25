@@ -43,7 +43,7 @@ class User(Base):
     id            = Column(Integer, primary_key=True, index=True)
     full_name     = Column(String, index=True)
     email         = Column(String, unique=True, index=True, nullable=False)
-    phone         = Column(String, unique=True, index=True)
+    phone         = Column(String, index=True)
     password_hash = Column(String, nullable=False)
     role          = Column(String, default="Customer")   # Admin | Driver | Customer
     created_at    = Column(DateTime(timezone=True), server_default=func.now())

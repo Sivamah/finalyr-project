@@ -22,7 +22,17 @@ class DMFE_Optimizer:
         # Pickups (1, 3, 5...)
         # Deliveries (2, 4, 6...)
         
-        self.locations = [(0.0, 0.0)]  # Depot placeholder
+        # Compute depot as centroid of all request locations (avoids (0,0) Atlantic Ocean)
+        all_lats = []
+        all_lngs = []
+        for req in self.requests:
+            all_lats.extend([req["pickup_lat"], req["drop_lat"]])
+            all_lngs.extend([req["pickup_lng"], req["drop_lng"]])
+        if all_lats and all_lngs:
+            depot = (sum(all_lats) / len(all_lats), sum(all_lngs) / len(all_lngs))
+        else:
+            depot = (0.0, 0.0)
+        self.locations = [depot]
         self.pickups_deliveries = []
         self.demands = [0]
         self.request_mapping = {}  # node index -> request info
@@ -45,13 +55,19 @@ class DMFE_Optimizer:
             idx += 2
             
         # For simplicity, we assume all vehicles start and end at the depot (Node 0)
-        # Real-world: vehicles start at their current GPS location.
-        # We can simulate this by setting the distance from Depot to Node to be 0 for the first step, 
-        # but let's just use standard VRP for the batching algorithm.
-        self.num_vehicles = max(1, len(self.vehicles))
+        # Use fewer vehicles than requests to force combining (core DMFE batching logic)
+        # Number of vehicles = ceil(requests / 2) to ensure grouping
+        num_requests = len(self.requests)
+        num_drivers = max(1, len(self.vehicles))
+        self.num_vehicles = min(max(1, (num_requests + 1) // 2), num_drivers)
+        if num_requests == 0:
+            self.num_vehicles = 1
         
-        # For academic purposes, if no vehicles are passed, we just use 1 default vehicle
-        self.vehicle_capacities = [v.get("capacity", 4) for v in self.vehicles] if self.vehicles else [4]
+        raw_capacities = [v.get("capacity", 4) for v in self.vehicles] if self.vehicles else [4]
+        # Ensure capacities list matches num_vehicles
+        self.vehicle_capacities = []
+        for i in range(self.num_vehicles):
+            self.vehicle_capacities.append(raw_capacities[i % len(raw_capacities)])
         
     def solve(self) -> List[Dict[str, Any]]:
         if not self.requests:
@@ -76,15 +92,17 @@ class DMFE_Optimizer:
         routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
 
         # Add Distance constraint to prevent infinite routes
+        max_dist = max(100000, len(self.requests) * 30000)
         dimension_name = 'Distance'
         routing.AddDimension(
             transit_callback_index,
             0,  # no slack
-            100000,  # vehicle maximum travel distance (100 km)
+            max_dist,
             True,  # start cumul to zero
             dimension_name)
         distance_dimension = routing.GetDimensionOrDie(dimension_name)
-        distance_dimension.SetGlobalSpanCostCoefficient(100)
+        # High global span cost to encourage combining requests onto fewer vehicles
+        distance_dimension.SetGlobalSpanCostCoefficient(max(500, 200 * len(self.requests)))
 
         # Define Transportation Requests
         for request in self.pickups_deliveries:

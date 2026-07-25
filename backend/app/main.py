@@ -30,7 +30,6 @@ async def lifespan(app: FastAPI):
                     full_name=u["full_name"],
                     password_hash=get_password_hash(u["password"]),
                     role=u["role"],
-                    is_active=True
                 )
                 db.add(new_user)
             else:

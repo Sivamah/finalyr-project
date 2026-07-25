@@ -9,6 +9,8 @@ from app.schemas.booking import (
     StatusUpdate,
 )
 from app.api.deps import SessionDep, CurrentUser
+from app.core.coimbatore import validate_coimbatore_location
+
 
 router = APIRouter()
 
@@ -25,6 +27,8 @@ CUSTOMER_CANCELLABLE = {BookingStatus.Pending, BookingStatus.Accepted}
 @router.post("/ride", response_model=RideBookingResponse, status_code=201,
              summary="Create a ride booking")
 def create_ride(data: RideBookingCreate, db: SessionDep, current_user: CurrentUser):
+    validate_coimbatore_location(data.pickup_lat, data.pickup_lng, "Pickup location")
+    validate_coimbatore_location(data.drop_lat, data.drop_lng, "Drop location")
     booking = RideBooking(**data.model_dump(), customer_id=current_user.id)
     db.add(booking)
     db.commit()
@@ -82,6 +86,10 @@ def update_ride(booking_id: int, data: RideBookingUpdate, db: SessionDep, curren
 @router.post("/food", response_model=FoodBookingResponse, status_code=201,
              summary="Create a food delivery booking")
 def create_food(data: FoodBookingCreate, db: SessionDep, current_user: CurrentUser):
+    if data.restaurant_lat is not None and data.restaurant_lng is not None:
+        validate_coimbatore_location(data.restaurant_lat, data.restaurant_lng, "Restaurant location")
+    if data.delivery_lat is not None and data.delivery_lng is not None:
+        validate_coimbatore_location(data.delivery_lat, data.delivery_lng, "Delivery location")
     booking = FoodBooking(**data.model_dump(), customer_id=current_user.id)
     db.add(booking)
     db.commit()
@@ -139,6 +147,10 @@ def update_food(booking_id: int, data: FoodBookingUpdate, db: SessionDep, curren
 @router.post("/parcel", response_model=ParcelBookingResponse, status_code=201,
              summary="Create a parcel delivery booking")
 def create_parcel(data: ParcelBookingCreate, db: SessionDep, current_user: CurrentUser):
+    if data.pickup_lat is not None and data.pickup_lng is not None:
+        validate_coimbatore_location(data.pickup_lat, data.pickup_lng, "Pickup location")
+    if data.drop_lat is not None and data.drop_lng is not None:
+        validate_coimbatore_location(data.drop_lat, data.drop_lng, "Drop location")
     booking = ParcelBooking(**data.model_dump(), customer_id=current_user.id)
     db.add(booking)
     db.commit()
