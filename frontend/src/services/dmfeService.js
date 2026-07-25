@@ -17,7 +17,7 @@ export const dmfeService = {
   },
   
   updateBatchStatus: async (batchId, status) => {
-    const response = await api.patch(`/dmfe/batches/${batchId}/status?new_status=${status}`);
+    const response = await api.patch(`/dmfe/batches/${batchId}/status`, { status });
     return response.data;
   }
 };

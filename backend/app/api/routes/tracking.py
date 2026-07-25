@@ -35,9 +35,9 @@ async def update_location(data: LocationUpdate, db: Session = Depends(get_db), c
         customer_ids = set()
         # Find all associated bookings from the batch
         # Wait, Batch model has `ride_bookings`, `food_bookings`, `parcel_bookings`
-        for b in trip.batch.ride_bookings: customer_ids.add(b.passenger_id)
+        for b in trip.batch.ride_bookings: customer_ids.add(b.customer_id)
         for b in trip.batch.food_bookings: customer_ids.add(b.customer_id)
-        for b in trip.batch.parcel_bookings: customer_ids.add(b.sender_id)
+        for b in trip.batch.parcel_bookings: customer_ids.add(b.customer_id)
 
         payload = {
             "event": "LOCATION_UPDATE",

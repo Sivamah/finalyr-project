@@ -1,42 +1,47 @@
 """Phase 9 — Booking Tests (Ride, Food, Parcel)"""
 
-from .conftest import auth_header
+from tests.conftest import auth_header
 
 
 RIDE_DATA = {
-    "pickup_address": "MG Road, Bengaluru",
-    "drop_address": "Whitefield, Bengaluru",
-    "pickup_lat": 12.9716,
-    "pickup_lng": 77.5946,
-    "drop_lat": 12.9698,
-    "drop_lng": 77.7500,
-    "distance_km": 18.5,
-    "estimated_fare": 250.0,
+    "pickup_address": "Gandhipuram, Coimbatore",
+    "drop_address": "Peelamedu, Coimbatore",
+    "pickup_lat": 11.0168,
+    "pickup_lng": 76.9558,
+    "drop_lat": 11.0250,
+    "drop_lng": 76.9700,
+    "distance_km": 3.5,
+    "estimated_fare": 75.0,
 }
 
 FOOD_DATA = {
     "restaurant_name": "Pizza Palace",
-    "restaurant_address": "Indiranagar, Bengaluru",
-    "restaurant_lat": 12.9784,
-    "restaurant_lng": 77.6408,
-    "delivery_address": "Koramangala, Bengaluru",
-    "delivery_lat": 12.9352,
-    "delivery_lng": 77.6245,
+    "restaurant_address": "RS Puram, Coimbatore",
+    "restaurant_lat": 11.0000,
+    "restaurant_lng": 76.9600,
+    "delivery_address": "Sitra, Coimbatore",
+    "delivery_lat": 11.0100,
+    "delivery_lng": 76.9200,
+    "order_description": "2x Margherita Pizza, 1x Garlic Bread",
     "distance_km": 5.2,
-    "items_json": '[{"name": "Margherita Pizza", "qty": 2, "price": 350}]',
     "estimated_fare": 70.0,
 }
 
 PARCEL_DATA = {
-    "pickup_address": "HSR Layout, Bengaluru",
-    "drop_address": "Electronic City, Bengaluru",
-    "pickup_lat": 12.9116,
-    "pickup_lng": 77.6474,
-    "drop_lat": 12.8456,
-    "drop_lng": 77.6603,
+    "sender_name": "John Doe",
+    "sender_phone": "9876543210",
+    "pickup_address": "Saibaba Colony, Coimbatore",
+    "pickup_lat": 11.0200,
+    "pickup_lng": 76.9400,
+    "recipient_name": "Jane Doe",
+    "recipient_phone": "9876543211",
+    "drop_address": "Singanallur, Coimbatore",
+    "drop_lat": 11.0050,
+    "drop_lng": 77.0000,
+    "parcel_size": "Small",
     "distance_km": 10.0,
     "weight_kg": 2.5,
-    "parcel_type": "Document",
+    "description": "Documents",
     "estimated_fare": 120.0,
 }
 
@@ -77,7 +82,7 @@ class TestParcelBooking:
             headers=auth_header(customer_token),
         )
         assert res.status_code == 201
-        assert res.json()["parcel_type"] == "Document"
+        assert res.json()["parcel_size"] == "Small"
 
 
 class TestBookingHistory:

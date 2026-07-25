@@ -5,6 +5,7 @@ export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser]       = useState(null);
+  const [token, setToken]     = useState(localStorage.getItem('access_token'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,7 +27,9 @@ export const AuthProvider = ({ children }) => {
   // Fixed: send JSON body instead of FormData
   const login = async (email, password, role) => {
     const res = await api.post('/auth/login', { email, password, role });
-    localStorage.setItem('access_token', res.data.access_token);
+    const accessToken = res.data.access_token;
+    localStorage.setItem('access_token', accessToken);
+    setToken(accessToken);
     const profileRes = await api.get('/auth/profile');
     setUser(profileRes.data);
     return profileRes.data;
@@ -40,11 +43,12 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try { await api.post('/auth/logout'); } catch { /* ignore */ }
     localStorage.removeItem('access_token');
+    setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

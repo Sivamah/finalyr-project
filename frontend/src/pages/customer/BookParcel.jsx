@@ -3,6 +3,7 @@ import { Package, Weight, User, Phone, AlertTriangle, FileText, Loader2, CheckCi
 import LocationPicker from '../../components/maps/LocationPicker';
 import RoutePreview from '../../components/maps/RoutePreview';
 import { createParcelBooking } from '../../services/bookingService';
+import { validateCoimbatore } from '../../utils/coimbatore';
 import toast from 'react-hot-toast';
 
 const PARCEL_SIZES = [
@@ -35,6 +36,10 @@ export default function BookParcel({ onSuccess }) {
     if (!recipientPhone.trim()){ toast.error('Recipient phone is required'); return; }
     if (!dropAddr)             { toast.error('Set drop location on map');    return; }
 
+    try {
+      validateCoimbatore(pickupAddr.lat, pickupAddr.lng, 'Pickup location');
+      validateCoimbatore(dropAddr.lat, dropAddr.lng, 'Drop location');
+    } catch (err) { toast.error(err.message); return; }
     setLoading(true);
     try {
       await createParcelBooking({

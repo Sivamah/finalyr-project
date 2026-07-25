@@ -139,11 +139,11 @@ def evaluate_and_batch_requests(db: Session):
         batch_requests = []
         for r_type, r_id in req_ids:
             if r_type == "ride":
-                obj = db.query(models.RideBooking).get(r_id)
+                obj = db.get(models.RideBooking, r_id)
             elif r_type == "food":
-                obj = db.query(models.FoodBooking).get(r_id)
+                obj = db.get(models.FoodBooking, r_id)
             else:
-                obj = db.query(models.ParcelBooking).get(r_id)
+                obj = db.get(models.ParcelBooking, r_id)
                 
             if obj:
                 obj.batch_id = new_batch.id

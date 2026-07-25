@@ -94,6 +94,7 @@ def _register_and_login(client, data):
     res = client.post("/api/auth/login", json={
         "email": data["email"],
         "password": data["password"],
+        "role": data["role"],
     })
     return res.json()["access_token"]
 
@@ -109,8 +110,27 @@ def driver_token(client):
 
 
 @pytest.fixture()
-def admin_token(client):
-    return _register_and_login(client, ADMIN_DATA)
+def admin_token(client, db):
+    # Admins cannot be registered via API. Create directly in DB.
+    from app.db.models import User
+    admin = db.query(User).filter(User.email == ADMIN_DATA["email"]).first()
+    if not admin:
+        admin = User(
+            full_name=ADMIN_DATA["full_name"],
+            email=ADMIN_DATA["email"],
+            phone=ADMIN_DATA["phone"],
+            password_hash=get_password_hash(ADMIN_DATA["password"]),
+            role="Admin"
+        )
+        db.add(admin)
+        db.commit()
+    
+    res = client.post("/api/auth/login", json={
+        "email": ADMIN_DATA["email"],
+        "password": ADMIN_DATA["password"],
+        "role": ADMIN_DATA["role"],
+    })
+    return res.json()["access_token"]
 
 
 def auth_header(token):

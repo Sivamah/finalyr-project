@@ -3,6 +3,7 @@ import { UtensilsCrossed, Store, FileText, Loader2, CheckCircle2 } from 'lucide-
 import LocationPicker from '../../components/maps/LocationPicker';
 import RoutePreview from '../../components/maps/RoutePreview';
 import { createFoodBooking } from '../../services/bookingService';
+import { validateCoimbatore } from '../../utils/coimbatore';
 import toast from 'react-hot-toast';
 
 export default function BookFood({ onSuccess }) {
@@ -28,6 +29,10 @@ export default function BookFood({ onSuccess }) {
       toast.error(Object.values(errors)[0]);
       return;
     }
+    try {
+      validateCoimbatore(restaurantAddr.lat, restaurantAddr.lng, 'Restaurant location');
+      validateCoimbatore(deliveryAddr.lat, deliveryAddr.lng, 'Delivery location');
+    } catch (err) { toast.error(err.message); return; }
     setLoading(true);
     try {
       await createFoodBooking({

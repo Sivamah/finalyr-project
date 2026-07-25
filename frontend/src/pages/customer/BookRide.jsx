@@ -3,6 +3,7 @@ import { Car, Bike, Navigation2, FileText, Loader2, CheckCircle2 } from 'lucide-
 import LocationPicker from '../../components/maps/LocationPicker';
 import RoutePreview from '../../components/maps/RoutePreview';
 import { createRideBooking } from '../../services/bookingService';
+import { validateCoimbatore } from '../../utils/coimbatore';
 import toast from 'react-hot-toast';
 
 const VEHICLE_TYPES = [
@@ -25,6 +26,10 @@ export default function BookRide({ onSuccess }) {
     if (!pickup) { toast.error('Please set a pickup location'); return; }
     if (!drop)   { toast.error('Please set a drop location');   return; }
 
+    try {
+      validateCoimbatore(pickup.lat, pickup.lng, 'Pickup location');
+      validateCoimbatore(drop.lat, drop.lng, 'Drop location');
+    } catch (err) { toast.error(err.message); return; }
     setLoading(true);
     try {
       await createRideBooking({

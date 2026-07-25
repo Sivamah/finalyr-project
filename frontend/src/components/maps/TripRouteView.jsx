@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Loader2, Route, Droplet, Clock } from 'lucide-react';
 import routingService from '../../services/routingService';
-import GoogleMapView from './GoogleMapView';
+import LeafletMapView from './LeafletMapView';
 import toast from 'react-hot-toast';
 
 export default function TripRouteView({ tripId }) {
@@ -15,13 +15,12 @@ export default function TripRouteView({ tripId }) {
         const data = await routingService.getRouteDetails(tripId);
         setRouteDetails(data);
       } catch (err) {
-        // If route not generated yet, try to generate it
         if (err.response?.status === 404) {
           try {
             const data = await routingService.optimizeRoute(tripId);
             setRouteDetails(data);
             toast.success("Route optimized successfully!");
-          } catch (generateErr) {
+          } catch {
             toast.error("Failed to optimize route for this trip.");
           }
         } else {
@@ -50,9 +49,10 @@ export default function TripRouteView({ tripId }) {
     );
   }
 
+  const stops = (routeDetails.stops || routeDetails.optimized_stops || []);
+
   return (
     <div className="space-y-4">
-      {/* Route Stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-indigo-50 p-3 rounded-xl text-center">
           <Route className="h-5 w-5 text-indigo-500 mx-auto mb-1" />
@@ -71,25 +71,21 @@ export default function TripRouteView({ tripId }) {
         </div>
       </div>
 
-      {/* Map */}
       <div className="h-64 rounded-xl overflow-hidden border border-gray-200">
-        <GoogleMapView 
-          routeStops={routeDetails.stops || []} 
-        />
+        <LeafletMapView routeStops={stops} />
       </div>
       
-      {/* Stop Sequence */}
       <div className="mt-4">
         <h4 className="text-xs font-semibold uppercase text-gray-500 mb-2">Optimized Route Sequence</h4>
         <div className="space-y-2">
-          {routeDetails.stops?.map((stop, idx) => (
+          {stops.map((stop, idx) => (
             <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
               <div className="bg-white text-gray-800 w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shadow-sm">
-                {stop.stop_sequence}
+                {stop.stop_sequence || idx + 1}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-gray-900 truncate font-medium">{stop.address || `Lat: ${stop.lat.toFixed(4)}, Lng: ${stop.lng.toFixed(4)}`}</p>
-                <p className="text-xs text-gray-500 capitalize">{stop.action} • ETA: +{Math.round(stop.eta_mins)} mins</p>
+                <p className="text-xs text-gray-500 capitalize">{stop.action || 'Stop'} • ETA: +{Math.round(stop.eta_mins || 0)} mins</p>
               </div>
             </div>
           ))}
