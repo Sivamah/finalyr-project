@@ -7,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("rapid-api")
+logger = logging.getLogger("aiorch")
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

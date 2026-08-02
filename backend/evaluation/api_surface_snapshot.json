@@ -1,0 +1,530 @@
+[
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/advanced-analytics"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/analytics"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/config"
+  },
+  {
+    "method": [
+      "PATCH"
+    ],
+    "path": "/api/config"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/config/audit-logs"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/config/export"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/config/import"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/config/reset"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/dmfe/analyze"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/dmfe/assign/driver"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/assignments"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/dmfe/batch/create"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/batches"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/batches/{batch_id}"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/dmfe/compatibility-score"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/history"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/dmfe/optimize/route"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/queue"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/dmfe/run"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/statistics"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/trips"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/dmfe/trips/{trip_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/drivers"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/drivers"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/drivers/assignments/history"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/drivers/stats"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/api/drivers/{driver_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/drivers/{driver_id}"
+  },
+  {
+    "method": [
+      "PATCH"
+    ],
+    "path": "/api/drivers/{driver_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/health"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/notifications"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/api/notifications/clear-all"
+  },
+  {
+    "method": [
+      "PATCH"
+    ],
+    "path": "/api/notifications/read-all"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/notifications/stats"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/notifications/timeline"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/api/notifications/{notification_id}"
+  },
+  {
+    "method": [
+      "PATCH"
+    ],
+    "path": "/api/notifications/{notification_id}/read"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/scenarios"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/scenarios"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/api/scenarios/{scenario_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/simulation/compare"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/simulation/save-current"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/simulation/saved"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/simulation/saved/dashboard"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/api/simulation/saved/{sim_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/simulation/saved/{sim_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/vehicles"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/api/vehicles"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/vehicles/locations"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/vehicles/stats"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/api/vehicles/{vehicle_id}"
+  },
+  {
+    "method": [
+      "PATCH"
+    ],
+    "path": "/api/vehicles/{vehicle_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/xai/explanations"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/xai/explanations/{request_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/api/xai/overview"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/clear"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/clear-history"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/clear-queue"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/datasets"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/datasets/upload"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/datasets/{dataset_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/history"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/login"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/logout"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/optimize"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/pause"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/profile"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/providers/breakdown"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/queue"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/requests"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/results"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/results/recent"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/results/{result_id}"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/resume"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/seed"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/simulate"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/start"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/stats"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/status"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/stop"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/vehicles/{vehicle_id}"
+  },
+  {
+    "method": [
+      "DELETE"
+    ],
+    "path": "/{provider_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/{provider_id}"
+  },
+  {
+    "method": [
+      "PATCH"
+    ],
+    "path": "/{provider_id}"
+  },
+  {
+    "method": [
+      "GET"
+    ],
+    "path": "/{provider_id}/vehicles"
+  },
+  {
+    "method": [
+      "POST"
+    ],
+    "path": "/{provider_id}/vehicles"
+  }
+]

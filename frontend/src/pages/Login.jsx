@@ -1,89 +1,75 @@
-import { useState, useContext } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useContext, useState } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { Cpu, Eye, EyeOff } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('Customer');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useContext(AuthContext);
+  const { user, login } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [email, setEmail] = useState('admin@aiorch.com');
+  const [password, setPassword] = useState('admin123');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  if (user) return <Navigate to="/dashboard" replace />;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
     try {
-      const user = await login(email, password, role);
-      if (user.role === 'Admin') navigate('/admin');
-      else if (user.role === 'Driver') navigate('/driver');
-      else navigate('/customer');
+      await login(email, password);
+      toast.success('Welcome, Admin');
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Failed to login. Please check your credentials.');
+      toast.error(err.response?.data?.detail || 'Login failed');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center">
-      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-md border border-gray-100">
-        <div>
-          <h2 className="mt-2 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-indigo-600 mb-4">
+            <Cpu className="h-8 w-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">AI Orchestration Platform</h1>
+          <p className="text-gray-400 mt-1">Admin Dashboard Login</p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded">{error}</div>}
-          <div className="rounded-md shadow-sm space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Email address</label>
-              <input
-                type="email"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Password</label>
-              <input
-                type="password"
-                required
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Role</label>
-              <select
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm bg-white"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-              >
-                <option value="Customer">Customer</option>
-                <option value="Driver">Driver</option>
-                <option value="Admin">Admin</option>
-              </select>
-            </div>
-          </div>
 
+        <form onSubmit={handleSubmit} className="bg-gray-800 rounded-xl p-8 border border-gray-700 space-y-5">
           <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:bg-primary-400"
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+            <input
+              type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="admin@aiorch.com"
+            />
           </div>
-          <div className="text-center text-sm">
-             <span className="text-gray-600">Don't have an account? </span>
-             <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">Register</Link>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Password</label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'} required value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent pr-10"
+                placeholder="••••••••"
+              />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
+          <button type="submit" disabled={loading} className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50">
+            {loading ? 'Signing in...' : 'Sign In'}
+          </button>
         </form>
+
+        <p className="text-center text-gray-500 text-xs mt-4">
+          AI Orchestration Platform v1.0 — Admin Access Only
+        </p>
       </div>
     </div>
   );

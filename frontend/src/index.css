@@ -1,42 +1,25 @@
 @import "tailwindcss";
-@import "leaflet/dist/leaflet.css";
 
 @theme {
-  --color-primary-50: var(--color-violet-50);
-  --color-primary-100: var(--color-violet-100);
-  --color-primary-200: var(--color-violet-200);
-  --color-primary-300: var(--color-violet-300);
-  --color-primary-400: var(--color-violet-400);
-  --color-primary-500: var(--color-violet-500);
-  --color-primary-600: var(--color-violet-600);
-  --color-primary-700: var(--color-violet-700);
-  --color-primary-800: var(--color-violet-800);
-  --color-primary-900: var(--color-violet-900);
+  --color-primary-50: var(--color-indigo-50);
+  --color-primary-100: var(--color-indigo-100);
+  --color-primary-200: var(--color-indigo-200);
+  --color-primary-300: var(--color-indigo-300);
+  --color-primary-400: var(--color-indigo-400);
+  --color-primary-500: var(--color-indigo-500);
+  --color-primary-600: var(--color-indigo-600);
+  --color-primary-700: var(--color-indigo-700);
+  --color-primary-800: var(--color-indigo-800);
+  --color-primary-900: var(--color-indigo-900);
 }
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-gray-900 text-gray-100;
     font-family: 'Inter', system-ui, sans-serif;
   }
 }
 
-/* ── Leaflet map fixes ────────────────────── */
-.leaflet-container {
-  height: 100%;
-  width: 100%;
-  border-radius: 0.75rem;
-  z-index: 0;
-}
-
-/* ── Custom scrollbar ─────────────────────── */
 ::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-
-/* ── Map overlay pulse animation ─────────── */
-@keyframes ping-dot {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.4); opacity: 0.5; }
-}
-.map-pin-pulse { animation: ping-dot 1.5s ease-in-out infinite; }
+::-webkit-scrollbar-track { background: #1f2937; }
+::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
