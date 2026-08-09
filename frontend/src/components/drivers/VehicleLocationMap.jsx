@@ -4,7 +4,9 @@ import L from 'leaflet';
 import { MapPin, Navigation, Truck, RefreshCw, Shield, User } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-const COIMBATORE_CENTER = [11.0168, 76.9558];
+import { COIMBATORE_CENTER as _CBE } from '../../utils/coimbatore';
+
+const COIMBATORE_CENTER = [_CBE.lat, _CBE.lng];
 const DEFAULT_ZOOM = 12;
 
 // Custom SVG Icons for Vehicle Statuses

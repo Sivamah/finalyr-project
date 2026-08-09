@@ -32,13 +32,6 @@ export default function KPICards({ kpi = {} }) {
       borderColor: 'border-blue-500/20',
     },
     {
-      label: 'Active Requests',
-      value: kpi.active_requests ?? 0,
-      icon: Activity,
-      iconBg: 'bg-yellow-500/10 text-yellow-400',
-      borderColor: 'border-yellow-500/20',
-    },
-    {
       label: 'Pending Requests',
       value: kpi.pending_requests ?? 0,
       icon: Clock,

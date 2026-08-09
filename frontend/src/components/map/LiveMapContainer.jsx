@@ -7,7 +7,7 @@ import MarkerPopup from './MarkerPopup';
 import MapControls from './MapControls';
 import 'leaflet/dist/leaflet.css';
 
-const COIMBATORE_CENTER = { lat: 11.0168, lng: 76.9558 };
+import { COIMBATORE_CENTER } from '../../utils/coimbatore';
 const DEFAULT_ZOOM = 12;
 
 const containerStyle = {
