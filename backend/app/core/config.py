@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Optional
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 
@@ -42,13 +42,14 @@ class Settings(BaseSettings):
             )
         return "sqlite:///./dmfe_dev.db"
 
-    class Config:
-        # Absolute path, independent of the CWD the backend is started from.
-        # A relative ".env" breaks SECRET_KEY/DATABASE_URL/ALLOWED_ORIGINS
-        # whenever uvicorn is launched from the repo root, which prevents
-        # the backend from booting and makes login look broken.
-        env_file = BACKEND_DIR / ".env"
-        extra = "ignore"
+    # Absolute path, independent of the CWD the backend is started from.
+    # A relative ".env" breaks SECRET_KEY/DATABASE_URL/ALLOWED_ORIGINS
+    # whenever uvicorn is launched from the repo root, which prevents
+    # the backend from booting and makes login look broken.
+    model_config = SettingsConfigDict(
+        env_file=BACKEND_DIR / ".env",
+        extra="ignore",
+    )
 
 
 settings = Settings()
