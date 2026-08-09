@@ -827,12 +827,12 @@ def complete_trip(
         assignment.status = "Completed"
         assignment.completed_at = now
 
-    if trip.driver_id is not None:
+    if trip.driver_id is not None and getattr(trip, "_skip_availability", False) is False:
         driver = db.query(Driver).filter(Driver.id == trip.driver_id).first()
         if driver is not None:
             driver.status = "Available"
 
-    if trip.vehicle_id is not None:
+    if trip.vehicle_id is not None and getattr(trip, "_skip_availability", False) is False:
         vehicle = db.query(Vehicle).filter(Vehicle.id == trip.vehicle_id).first()
         if vehicle is not None:
             vehicle.status = "Available"
@@ -898,9 +898,28 @@ def complete_stale_trips(db: Session, max_age_min: float = 45.0) -> int:
         )
         .all()
     )
-    for t in stale:
-        complete_trip(db, t.id, commit=False)
-    if stale:
-        db.commit()
-        logger.info("Released %d stale trip(s) older than %.0f min", len(stale), max_age_min)
+    if not stale:
+        return 0
+
+    # Bulk update to avoid N+1 queries in the loop below
+    driver_ids = [t.driver_id for t in stale if t.driver_id is not None]
+    vehicle_ids = [t.vehicle_id for t in stale if t.vehicle_id is not None]
+
+    if driver_ids:
+        db.query(Driver).filter(Driver.id.in_(driver_ids)).update(
+            {"status": "Available"}, synchronize_session=False
+        )
+    if vehicle_ids:
+        db.query(Vehicle).filter(Vehicle.id.in_(vehicle_ids)).update(
+            {"status": "Available"}, synchronize_session=False
+        )
+
+    count = 0
+    for trip in stale:
+        setattr(trip, "_skip_availability", True)
+        complete_trip(db, trip.id, commit=False)
+        count += 1
+    
+    db.commit()
+    logger.info("Released %d stale trip(s) older than %.0f min", len(stale), max_age_min)
     return len(stale)

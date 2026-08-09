@@ -92,13 +92,20 @@ class DMFEResult:
         }
 
 
-def _availability_gate(db: Session, demand: int) -> Tuple[bool, str]:
+def _availability_gate(
+    db: Session, 
+    demand: int,
+    cache: Optional[Dict[int, Tuple[bool, str]]] = None,
+) -> Tuple[bool, str]:
     """
     Driver/vehicle availability check for ONE demand level (pure DB part of
     Gate E; the per-group weight check is applied by the caller).  Cached
     per demand level inside a run so the analysis loop does not repeat the
     driver/vehicle counts for every candidate group.
     """
+    if cache is not None and demand in cache:
+        return cache[demand]
+
     total_drivers = db.query(Driver).count()
 
     # If no drivers are seeded at all, skip the availability gate —
@@ -128,15 +135,18 @@ def _availability_gate(db: Session, demand: int) -> Tuple[bool, str]:
         .filter(Vehicle.capacity >= demand)
         .count()
     )
+    
     if fitting_vehicle == 0:
-        return False, (
+        res = False, (
             f"No Available vehicle with capacity ≥ {demand} "
             f"(largest free vehicle capacity is insufficient)"
         )
+    else:
+        res = True, "Availability checks passed (gate skipped)"
 
-    return True, (
-        f"{free_drivers} driver(s) and {free_vehicles} vehicle(s) available"
-    )
+    if cache is not None:
+        cache[demand] = res
+    return res
 
 
 def _estimate_fuel_co2(
@@ -197,7 +207,9 @@ def _driver_feasibility(
         ), None
 
     if selector is None or driver_pool is None:
-        ok, reason = _availability_gate(db, total_demand)
+        ok, reason = _availability_gate(
+            db, total_demand, cache=availability_cache
+        )
         return ok, reason, None
 
     # Unseeded system — the gate is skipped so a missing seed cannot veto
@@ -459,6 +471,7 @@ class DecisionEngine:
         # Gate E — Driver Availability (exact per-group feasibility probe)
         gate_e_ok, gate_e_reason, gate_e_candidate = _driver_feasibility(
             db, cg.requests, rules, selector, driver_pool, selector_rules,
+            availability_cache=availability_cache,
         )
         reasons.append(f"ℹ️ Driver Availability: {gate_e_reason}")
         if not gate_e_ok:
