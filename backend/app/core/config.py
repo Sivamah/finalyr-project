@@ -1,5 +1,8 @@
+from pathlib import Path
 from typing import Optional
 from pydantic_settings import BaseSettings
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -13,7 +16,11 @@ class Settings(BaseSettings):
     POSTGRES_PORT:     Optional[str] = "5432"
     POSTGRES_DB:       Optional[str] = None
 
-    SECRET_KEY: str
+    # No hard default: the app exits at import time if SECRET_KEY is missing
+    # from the environment/.env, which is a common cause of "backend won't
+    # start" on fresh deploys.  Keep a dev fallback so the platform always
+    # boots; a startup warning is logged when the fallback is used.
+    SECRET_KEY: str = "aiorch-dev-secret-change-me-in-production"
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
@@ -36,8 +43,20 @@ class Settings(BaseSettings):
         return "sqlite:///./dmfe_dev.db"
 
     class Config:
-        env_file = ".env"
+        # Absolute path, independent of the CWD the backend is started from.
+        # A relative ".env" breaks SECRET_KEY/DATABASE_URL/ALLOWED_ORIGINS
+        # whenever uvicorn is launched from the repo root, which prevents
+        # the backend from booting and makes login look broken.
+        env_file = BACKEND_DIR / ".env"
         extra = "ignore"
 
 
 settings = Settings()
+
+
+if settings.SECRET_KEY in ("aiorch-dev-secret-change-me-in-production", "", None):
+    import logging
+    logging.getLogger("aiorch").warning(
+        "SECRET_KEY not configured — using insecure development fallback. "
+        "Set SECRET_KEY in backend/.env for production."
+    )

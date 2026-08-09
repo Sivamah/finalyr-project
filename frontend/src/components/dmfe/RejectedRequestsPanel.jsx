@@ -2,9 +2,9 @@ import React from 'react';
 import { XCircle, Bike, ShoppingBag, Package } from 'lucide-react';
 
 const TYPE_ICONS = {
-  ride:   { icon: Bike,        color: 'text-indigo-400' },
-  food:   { icon: ShoppingBag, color: 'text-green-400'  },
-  parcel: { icon: Package,     color: 'text-amber-400'  },
+  ride: { icon: Bike, color: 'text-indigo-400' },
+  food: { icon: ShoppingBag, color: 'text-green-400' },
+  parcel: { icon: Package, color: 'text-amber-400' },
 };
 
 export default function RejectedRequestsPanel({ rejectedBatches = [] }) {

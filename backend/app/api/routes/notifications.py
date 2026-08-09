@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from fastapi import APIRouter, HTTPException
 from app.api.deps import SessionDep, CurrentUser
 from app.schemas.notification import NotificationListResponse, NotificationStats, ActivityTimelineItem
@@ -71,6 +71,16 @@ def mark_all_notifications_as_read(
     return {"message": f"Marked {count} notifications as read"}
 
 
+@router.delete("/clear-all")
+def clear_all_notifications(
+    db: SessionDep,
+    current_user: CurrentUser,
+):
+    """Delete all system notifications."""
+    count = notification_service.clear_all(db)
+    return {"message": f"Cleared {count} notifications"}
+
+
 @router.delete("/{notification_id}")
 def delete_notification(
     notification_id: int,
@@ -82,13 +92,3 @@ def delete_notification(
     if not success:
         raise HTTPException(status_code=404, detail="Notification not found")
     return {"message": "Notification deleted successfully"}
-
-
-@router.delete("/clear-all")
-def clear_all_notifications(
-    db: SessionDep,
-    current_user: CurrentUser,
-):
-    """Delete all system notifications."""
-    count = notification_service.clear_all(db)
-    return {"message": f"Cleared {count} notifications"}

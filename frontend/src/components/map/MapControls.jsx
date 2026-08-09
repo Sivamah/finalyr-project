@@ -9,55 +9,35 @@ export default function MapControls({
   isFullscreen,
   onToggleFullscreen,
 }) {
+  const baseBtn =
+    'flex items-center justify-center gap-1.5 rounded-xl text-brand-text-secondary hover:text-white hover:bg-white/[0.08] transition-all duration-300';
   return (
-    <div className="flex flex-col gap-2 bg-gray-800/90 backdrop-blur-md border border-gray-700/80 rounded-xl p-1.5 shadow-xl">
-      {/* Fit Bounds */}
+    <div className="flex flex-col gap-1 glass-panel-strong rounded-2xl p-1.5 backdrop-blur-xl">
       <button
         onClick={onFitBounds}
-        className="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors shadow-sm"
+        className={`${baseBtn} h-9 px-2.5 text-[11px] font-semibold text-white bg-gradient-to-br from-brand-primary to-brand-secondary/80 border border-white/15 shadow-[0_4px_16px_rgba(59,130,246,0.35)]`}
         title="Fit All Markers"
       >
-        <Target className="h-4 w-4" />
-        <span className="hidden sm:inline">Fit All</span>
+        <Target className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Fit</span>
       </button>
 
-      {/* Recenter */}
-      <button
-        onClick={onRecenter}
-        className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-xs font-medium flex items-center gap-1 transition-colors"
-        title="Recenter Map to Coimbatore"
-      >
-        <Compass className="h-4 w-4 text-cyan-400" />
-        <span className="hidden sm:inline">Coimbatore</span>
+      <button onClick={onRecenter} className={`${baseBtn} h-9 px-2.5 text-[11px]`} title="Recenter Map to Coimbatore">
+        <Compass className="h-3.5 w-3.5 text-brand-secondary" />
+        <span className="hidden sm:inline">Center</span>
       </button>
 
-      <div className="h-px bg-gray-700 my-0.5" />
+      <div className="h-px bg-white/[0.07] my-0.5 mx-1" />
 
-      {/* Zoom In */}
-      <button
-        onClick={onZoomIn}
-        className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
-        title="Zoom In"
-      >
+      <button onClick={onZoomIn} className={`${baseBtn} h-9 w-9`} title="Zoom In">
         <Plus className="h-4 w-4" />
       </button>
-
-      {/* Zoom Out */}
-      <button
-        onClick={onZoomOut}
-        className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
-        title="Zoom Out"
-      >
+      <button onClick={onZoomOut} className={`${baseBtn} h-9 w-9`} title="Zoom Out">
         <Minus className="h-4 w-4" />
       </button>
 
-      {/* Fullscreen Toggle */}
       {onToggleFullscreen && (
-        <button
-          onClick={onToggleFullscreen}
-          className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors mt-0.5"
-          title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-        >
+        <button onClick={onToggleFullscreen} className={`${baseBtn} h-9 w-9`} title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
           {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
       )}

@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict
+from typing import Optional, List
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -33,6 +33,12 @@ class SimulationQueueItem(BaseModel):
     provider_name: Optional[str] = None
     pickup_address: str = ""
     drop_address: str = ""
+    pickup_lat: float = 0.0
+    pickup_lng: float = 0.0
+    drop_lat: float = 0.0
+    drop_lng: float = 0.0
+    demand: int = 1
+    weight_kg: float = 0.0
     priority: str = "Medium"
     estimated_distance_km: float = 0.0
     estimated_time_min: float = 0.0

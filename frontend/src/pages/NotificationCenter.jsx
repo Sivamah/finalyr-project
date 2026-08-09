@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, CheckCheck, Trash2, RefreshCw, Activity, ListFilter, AlertCircle } from 'lucide-react';
+import { Bell, CheckCheck, Trash2, Activity } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
@@ -7,6 +7,8 @@ import NotificationStatistics from '../components/notifications/NotificationStat
 import NotificationFilters from '../components/notifications/NotificationFilters';
 import NotificationCard from '../components/notifications/NotificationCard';
 import ActivityTimeline from '../components/notifications/ActivityTimeline';
+import PageHeader from '../components/ui/PageHeader';
+import StatusBadge from '../components/ui/StatusBadge';
 
 export default function NotificationCenter() {
   const [search, setSearch] = useState('');
@@ -20,7 +22,6 @@ export default function NotificationCenter() {
   const [stats, setStats] = useState({});
   const [timeline, setTimeline] = useState([]);
   const [activeTab, setActiveTab] = useState('notifications'); // 'notifications' | 'timeline'
-  const [loading, setLoading] = useState(true);
 
   const pollRef = useRef(null);
 
@@ -44,15 +45,13 @@ export default function NotificationCenter() {
       setTimeline(timelineRes.data || []);
     } catch (err) {
       console.error('Failed to fetch notification data:', err);
-    } finally {
-      setLoading(false);
     }
   }, [search, filters]);
 
   // Polling: 2.5s
   useEffect(() => {
     fetchData();
-    pollRef.current = setInterval(fetchData, 2500);
+    pollRef.current = setInterval(() => { if (document.visibilityState === 'visible') fetchData(); }, 2500);
     return () => clearInterval(pollRef.current);
   }, [fetchData]);
 
@@ -109,42 +108,24 @@ export default function NotificationCenter() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* ── Page Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Bell className="h-6 w-6 text-indigo-400" />
-            Notification & Activity Center
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Real-time simulation alerts, system event telemetry, and chronological activity logs
-          </p>
-        </div>
-
-        {/* Actions Toolbar */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Live Indicator */}
-          <div className="flex items-center gap-1.5 px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg text-xs font-semibold text-green-400 mr-1">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Live Auto-Refresh (2.5s)
+    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="System"
+        live
+        title="Activity Center"
+        description="Real-time simulation alerts, system events and the chronological activity stream."
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            <StatusBadge tone="success" label="Auto-refresh 2.5s" pulse />
+            <button onClick={handleMarkAllRead} className="btn-primary">
+              <CheckCheck className="h-4 w-4" /> Mark All as Read
+            </button>
+            <button onClick={handleClearAll} className="btn-glass !text-brand-danger">
+              <Trash2 className="h-4 w-4" /> Clear All
+            </button>
           </div>
-
-          <button
-            onClick={handleMarkAllRead}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-xs transition-colors shadow-sm"
-          >
-            <CheckCheck className="h-4 w-4" /> Mark All as Read
-          </button>
-
-          <button
-            onClick={handleClearAll}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-red-400 font-medium rounded-lg text-xs transition-colors"
-          >
-            <Trash2 className="h-4 w-4" /> Clear All
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── 1. Statistics Metric Cards ────────────────────────────────────────── */}
       <NotificationStatistics stats={stats} />
@@ -161,33 +142,25 @@ export default function NotificationCenter() {
       {/* ── 3. Tabbed View: Notifications Panel vs Activity Timeline ──────────── */}
       <div className="space-y-4">
         {/* Tabs Bar */}
-        <div className="flex items-center border-b border-gray-700">
+        <div className="glass-panel rounded-[18px] p-1.5 flex items-center gap-1.5 w-fit overflow-x-auto custom-scrollbar">
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 transition-colors ${
-              activeTab === 'notifications'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
+            className={`tab-pill ${activeTab === 'notifications' ? 'tab-pill-active' : ''}`}
           >
             <Bell className="h-4 w-4" />
             Active Notifications
-            <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-500/20 text-indigo-400 font-bold">
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'notifications' ? 'bg-white/15 text-white' : 'bg-white/[0.06] text-brand-text-muted'}`}>
               {notifications.length}
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab('timeline')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 transition-colors ${
-              activeTab === 'timeline'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
+            className={`tab-pill ${activeTab === 'timeline' ? 'tab-pill-active' : ''}`}
           >
             <Activity className="h-4 w-4" />
-            Activity Timeline Log
-            <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400 font-bold">
+            Activity Timeline
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'timeline' ? 'bg-white/15 text-white' : 'bg-white/[0.06] text-brand-text-muted'}`}>
               {timeline.length}
             </span>
           </button>

@@ -1,0 +1,175 @@
+## Table 1. A-DMFE vs static DMFE — headline delivery metrics
+
+| Metric | W | Static | Adaptive | Δ % |
+|---|---|---|---|---|
+| Shared trips (single pass) | 50 | 15.00 | 15.00 | +0.0% |
+| Shared trips (single pass) | 100 | 41.00 | 41.00 | +0.0% |
+| Shared trips (single pass) | 250 | 50.00 | 50.00 | +0.0% |
+| Shared trips (single pass) | 500 | 50.00 | 50.00 | +0.0% |
+| Individual trips (single pass) | 50 | 20.00 | 19.00 | -5.0% |
+| Individual trips (single pass) | 100 | 18.00 | 16.00 | -11.1% |
+| Individual trips (single pass) | 250 | 10.00 | 10.00 | +0.0% |
+| Individual trips (single pass) | 500 | 10.00 | 10.00 | +0.0% |
+| Unassigned (single pass) | 50 | 0.00 | 0.00 | - |
+| Unassigned (single pass) | 100 | 0.00 | 0.00 | - |
+| Unassigned (single pass) | 250 | 74.00 | 72.00 | -2.7% |
+| Unassigned (single pass) | 500 | 204.00 | 202.00 | -1.0% |
+| Avg vehicle utilisation (%) | 50 | 74.28 | 77.33 | +4.1% |
+| Avg vehicle utilisation (%) | 100 | 75.60 | 78.49 | +3.8% |
+| Avg vehicle utilisation (%) | 250 | 75.31 | 77.81 | +3.3% |
+| Avg vehicle utilisation (%) | 500 | 76.36 | 80.81 | +5.8% |
+| Total fuel (L) | 50 | 15.46 | 15.64 | +1.2% |
+| Total fuel (L) | 100 | 39.76 | 38.61 | -2.9% |
+| Total fuel (L) | 250 | 41.23 | 42.83 | +3.9% |
+| Total fuel (L) | 500 | 41.00 | 42.93 | +4.7% |
+| Fuel saved (L) | 50 | 3.40 | 3.97 | +16.8% |
+| Fuel saved (L) | 100 | 15.28 | 16.09 | +5.3% |
+| Fuel saved (L) | 250 | 30.86 | 34.94 | +13.2% |
+| Fuel saved (L) | 500 | 32.01 | 35.14 | +9.8% |
+| CO2 saved (kg) | 50 | 7.78 | 9.07 | +16.6% |
+| CO2 saved (kg) | 100 | 35.15 | 36.98 | +5.2% |
+| CO2 saved (kg) | 250 | 70.99 | 80.38 | +13.2% |
+| CO2 saved (kg) | 500 | 73.56 | 80.81 | +9.9% |
+| CO2 reduction (%) | 50 | 18.00 | 20.10 | +11.7% |
+| CO2 reduction (%) | 100 | 27.80 | 29.40 | +5.8% |
+| CO2 reduction (%) | 250 | 42.80 | 44.90 | +4.9% |
+| CO2 reduction (%) | 500 | 43.80 | 45.00 | +2.7% |
+| Total distance (km) | 50 | 424.33 | 421.51 | -0.7% |
+| Total distance (km) | 100 | 780.24 | 775.89 | -0.6% |
+| Total distance (km) | 250 | 813.79 | 862.01 | +5.9% |
+| Total distance (km) | 500 | 849.42 | 838.02 | -1.3% |
+| Avg travel time (min) | 50 | 31.93 | 32.67 | +2.3% |
+| Avg travel time (min) | 100 | 35.11 | 36.15 | +3.0% |
+| Avg travel time (min) | 250 | 36.19 | 38.19 | +5.5% |
+| Avg travel time (min) | 500 | 37.61 | 37.19 | -1.1% |
+| Avg waiting (min) | 50 | 4.41 | 4.53 | +2.7% |
+| Avg waiting (min) | 100 | 5.44 | 5.41 | -0.6% |
+| Avg waiting (min) | 250 | 4.72 | 4.47 | -5.3% |
+| Avg waiting (min) | 500 | 4.34 | 4.48 | +3.2% |
+| Requests completed | 50 | 50.00 | 50.00 | +0.0% |
+| Requests completed | 100 | 100.00 | 100.00 | +0.0% |
+| Requests completed | 250 | 110.00 | 112.00 | +1.8% |
+| Requests completed | 500 | 110.00 | 111.00 | +0.9% |
+| Requests failed | 50 | 0.00 | 0.00 | - |
+| Requests failed | 100 | 0.00 | 0.00 | - |
+| Requests failed | 250 | 140.00 | 138.00 | -1.4% |
+| Requests failed | 500 | 390.00 | 389.00 | -0.3% |
+
+## Table 2. Efficiency, sustainability and compatibility
+
+| Metric | W | Static | Adaptive | Δ % |
+|---|---|---|---|---|
+| Driver pool utilisation (%) | 50 | 58.30 | 56.70 | -2.7% |
+| Driver pool utilisation (%) | 100 | 98.30 | 95.00 | -3.4% |
+| Driver pool utilisation (%) | 250 | 100.00 | 100.00 | +0.0% |
+| Driver pool utilisation (%) | 500 | 100.00 | 100.00 | +0.0% |
+| Avg batch compatibility | 50 | 84.73 | 83.70 | -1.2% |
+| Avg batch compatibility | 100 | 84.98 | 83.96 | -1.2% |
+| Avg batch compatibility | 250 | 92.14 | 91.21 | -1.0% |
+| Avg batch compatibility | 500 | 94.15 | 92.23 | -2.0% |
+| Compatibility std | 50 | 5.26 | 6.26 | +19.0% |
+| Compatibility std | 100 | 5.77 | 6.44 | +11.6% |
+| Compatibility std | 250 | 2.03 | 3.33 | +64.0% |
+| Compatibility std | 500 | 1.25 | 3.47 | +177.6% |
+| Waves completion (%) | 50 | 100.00 | 100.00 | +0.0% |
+| Waves completion (%) | 100 | 100.00 | 100.00 | +0.0% |
+| Waves completion (%) | 250 | 100.00 | 100.00 | +0.0% |
+| Waves completion (%) | 500 | 100.00 | 100.00 | +0.0% |
+| Waves total fuel (L) | 50 | 17.95 | 18.08 | +0.7% |
+| Waves total fuel (L) | 100 | 45.40 | 44.10 | -2.9% |
+| Waves total fuel (L) | 250 | 112.13 | 107.50 | -4.1% |
+| Waves total fuel (L) | 500 | 234.37 | 220.89 | -5.8% |
+| Batching rate (%) | 50 | 42.90 | 44.10 | +2.8% |
+| Batching rate (%) | 100 | 69.50 | 71.90 | +3.5% |
+| Batching rate (%) | 250 | 83.30 | 83.30 | +0.0% |
+| Batching rate (%) | 500 | 83.30 | 83.30 | +0.0% |
+| Avg delay (min) | 50 | 4.41 | 4.53 | +2.7% |
+| Avg delay (min) | 100 | 5.44 | 5.41 | -0.6% |
+| Avg delay (min) | 250 | 4.72 | 4.47 | -5.3% |
+| Avg delay (min) | 500 | 4.34 | 4.48 | +3.2% |
+| Avg requests/batch | 50 | 2.00 | 2.07 | +3.5% |
+| Avg requests/batch | 100 | 2.00 | 2.05 | +2.5% |
+| Avg requests/batch | 250 | 2.00 | 2.04 | +2.0% |
+| Avg requests/batch | 500 | 2.00 | 2.02 | +1.0% |
+| Max requests/batch | 50 | 2.00 | 3.00 | +50.0% |
+| Max requests/batch | 100 | 2.00 | 3.00 | +50.0% |
+| Max requests/batch | 250 | 2.00 | 3.00 | +50.0% |
+| Max requests/batch | 500 | 2.00 | 3.00 | +50.0% |
+| Avg processing (ms/req) | 50 | 16.75 | 18.34 | +9.5% |
+| Avg processing (ms/req) | 100 | 11.26 | 13.33 | +18.4% |
+| Avg processing (ms/req) | 250 | 8.08 | 10.57 | +30.8% |
+| Avg processing (ms/req) | 500 | 7.96 | 14.72 | +84.9% |
+| Pipeline total (s) | 50 | 0.84 | 0.92 | +9.4% |
+| Pipeline total (s) | 100 | 1.13 | 1.33 | +18.4% |
+| Pipeline total (s) | 250 | 2.02 | 2.64 | +31.0% |
+| Pipeline total (s) | 500 | 3.98 | 7.36 | +84.9% |
+| Route optimisation (s) | 50 | 0.04 | 0.03 | -27.3% |
+| Route optimisation (s) | 100 | 0.09 | 0.09 | +6.9% |
+| Route optimisation (s) | 250 | 0.11 | 0.09 | -23.4% |
+| Route optimisation (s) | 500 | 0.09 | 0.10 | +8.6% |
+| Batch formation (s) | 50 | 0.01 | 0.11 | +640.0% |
+| Batch formation (s) | 100 | 0.04 | 0.19 | +339.5% |
+| Batch formation (s) | 250 | 0.34 | 0.94 | +173.9% |
+| Batch formation (s) | 500 | 1.25 | 4.26 | +240.5% |
+| Driver selection (s) | 50 | 0.03 | 0.05 | +42.4% |
+| Driver selection (s) | 100 | 0.05 | 0.07 | +50.0% |
+| Driver selection (s) | 250 | 0.36 | 0.38 | +7.0% |
+| Driver selection (s) | 500 | 0.89 | 1.00 | +11.9% |
+| Decision gate (s) | 50 | 0.00 | 0.00 | - |
+| Decision gate (s) | 100 | 0.00 | 0.00 | - |
+| Decision gate (s) | 250 | 0.00 | 0.00 | - |
+| Decision gate (s) | 500 | 0.00 | 0.00 | +0.0% |
+| Persistence / commit (s) | 50 | 0.07 | 0.07 | +12.3% |
+| Persistence / commit (s) | 100 | 0.11 | 0.12 | +2.7% |
+| Persistence / commit (s) | 250 | 0.14 | 0.14 | -0.7% |
+| Persistence / commit (s) | 500 | 0.18 | 0.19 | +6.1% |
+| Learning (s) | 50 | 0.00 | 0.00 | - |
+| Learning (s) | 100 | 0.00 | 0.00 | - |
+| Learning (s) | 250 | 0.00 | 0.00 | - |
+| Learning (s) | 500 | 0.00 | 0.00 | - |
+| SQL queries (single pass) | 50 | 3,604.00 | 3,590.00 | -0.4% |
+| SQL queries (single pass) | 100 | 4,692.00 | 4,733.00 | +0.9% |
+| SQL queries (single pass) | 250 | 6,574.00 | 6,735.00 | +2.4% |
+| SQL queries (single pass) | 500 | 9,854.00 | 10,135.00 | +2.9% |
+
+## Table 3. Performance stage share (% of pipeline wall time)
+
+| Stage | W | Static s | Static % | Adaptive s | Adaptive % |
+|---|---|---|---|---|---|
+| Batch formation | 50 | 0.01 | 1.80 | 0.11 | 12.10 |
+| Batch formation | 100 | 0.04 | 3.90 | 0.19 | 14.20 |
+| Batch formation | 250 | 0.34 | 17.10 | 0.94 | 35.80 |
+| Batch formation | 500 | 1.25 | 31.50 | 4.26 | 57.90 |
+| Route optimisation | 50 | 0.04 | 5.20 | 0.03 | 3.50 |
+| Route optimisation | 100 | 0.09 | 7.70 | 0.09 | 7.00 |
+| Route optimisation | 250 | 0.11 | 5.50 | 0.09 | 3.20 |
+| Route optimisation | 500 | 0.09 | 2.30 | 0.10 | 1.40 |
+| Driver selection | 50 | 0.03 | 3.90 | 0.05 | 5.10 |
+| Driver selection | 100 | 0.05 | 4.10 | 0.07 | 5.20 |
+| Driver selection | 250 | 0.36 | 17.60 | 0.38 | 14.40 |
+| Driver selection | 500 | 0.89 | 22.50 | 1.00 | 13.60 |
+| Decision gate | 50 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Decision gate | 100 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Decision gate | 250 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Decision gate | 500 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Persistence (commit) | 50 | 0.07 | 7.70 | 0.07 | 8.00 |
+| Persistence (commit) | 100 | 0.11 | 9.90 | 0.12 | 8.70 |
+| Persistence (commit) | 250 | 0.14 | 6.80 | 0.14 | 5.20 |
+| Persistence (commit) | 500 | 0.18 | 4.50 | 0.19 | 2.60 |
+| Learning | 50 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Learning | 100 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Learning | 250 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Learning | 500 | 0.00 | 0.00 | 0.00 | 0.00 |
+| Dispatch+assignment | 50 | 0.19 | 22.60 | 0.20 | 21.40 |
+| Dispatch+assignment | 100 | 0.33 | 28.80 | 0.36 | 27.10 |
+| Dispatch+assignment | 250 | 0.69 | 34.10 | 0.69 | 25.90 |
+| Dispatch+assignment | 500 | 1.25 | 31.30 | 1.38 | 18.70 |
+
+## Table 4. Adaptive learning impact (closed-loop A/B)
+
+| Workload | Completion OFF% | Completion ON% | Delay err ON day 1 (min) | Delay err ON day 5 (min) | Delay err OFF day 5 (min) | Refit fired | Corridor mult range |
+|---|---|---|---|---|---|---|---|
+| 50 | 100.00 | 100.00 | 1.41 | 0.34 | 0.61 | None | - |
+| 100 | 100.00 | 100.00 | 0.96 | 0.81 | 0.74 | 4 | 1.05-1.20 |
+| 250 | 100.00 | 100.00 | 1.08 | 1.09 | 0.99 | 2 | 1.14-1.25 |
+| 500 | 100.00 | 100.00 | 1.00 | 1.07 | 0.88 | 1 | 1.14-1.23 |

@@ -37,7 +37,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
 import requests
@@ -45,11 +45,18 @@ from ortools.constraint_solver import pywrapcp, routing_enums_pb2
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.json_utils import json_loads
 from app.db.models import SimulationRequest, Vehicle, Driver
+from app.dmfe.compatibility import _cached, read_float_rules
 from app.dmfe.models import DMFEBatch
 from app.engine.distance import haversine
 
 logger = logging.getLogger(__name__)
+
+
+def _cached_vrp_rules(db: Optional[Session]) -> Dict[str, float]:
+    """TTL-cached VRP rules (shared SystemConfig cache in compatibility)."""
+    return _cached(db, "vrp_rules", lambda _db: read_float_rules(_db, VRP_RULE_DEFAULTS))
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Output structures
@@ -139,6 +146,8 @@ class OptimizedRoute:
 VRP_RULE_DEFAULTS: Dict[str, float] = {
     "vrp_time_weight": 0.3,          # w_time — seconds-of-time per meter
     "vrp_fuel_weight": 1.0,          # w_fuel — fuel cost weighting
+    "vrp_cost_km_weight": 0.0,       # w_cost — vehicle operating cost per km (0 = off)
+    "vrp_delay_penalty_per_min": 0.0,# soft delay cost per minute over budget (0 = off)
     "vrp_priority_bonus_m": 2000.0,  # meter-equivalent discount for High-priority pickups
     "service_time_min": 2.0,         # loading time at each pickup
     "max_allowed_delay_min": 20.0,   # maximum delay budget (duration cap)
@@ -148,25 +157,6 @@ VRP_RULE_DEFAULTS: Dict[str, float] = {
     "fuel_price_per_l": 100.0,       # fuel price for the fuel cost term
     "google_chunk_size": 10,         # Distance Matrix API elements per call
 }
-
-VRP_RULE_KEYS: Tuple[str, ...] = tuple(VRP_RULE_DEFAULTS.keys())
-
-
-def _load_vrp_rules(db: Optional[Session]) -> Dict[str, float]:
-    """Load VRP weights/limits from SystemConfig; fall back to defaults."""
-    rules = dict(VRP_RULE_DEFAULTS)
-    if db is None:
-        return rules
-    from app.db.models import SystemConfig
-
-    for key in VRP_RULE_KEYS:
-        row = db.query(SystemConfig).filter(SystemConfig.key == key).first()
-        if row:
-            try:
-                rules[key] = float(row.value)
-            except (ValueError, TypeError):
-                pass
-    return rules
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -194,6 +184,20 @@ def _build_matrices(
 
     speed_kmh = rules.get("avg_speed_kmh", 25.0)
     road = rules.get("road_factor", 1.25)
+    cn = _haversine_matrices(tuple(locations), speed_kmh, road)
+    # Return row copies — callers mutate matrices in place (open-route legs).
+    return [row[:] for row in cn[0]], [row[:] for row in cn[1]], "haversine_fallback"
+
+
+@lru_cache(maxsize=128)
+def _haversine_matrices(
+    locations: Tuple[Tuple[float, float], ...],
+    speed_kmh: float,
+    road: float,
+) -> Tuple[List[List[int]], List[List[int]]]:
+    """Haversine fallback distance/duration matrices, memoised per location
+    set.  Callers must deep-copy before in-place modification."""
+    n = len(locations)
     m_m: List[List[int]] = [[0] * n for _ in range(n)]
     m_s: List[List[int]] = [[0] * n for _ in range(n)]
     for i in range(n):
@@ -203,7 +207,7 @@ def _build_matrices(
             km = haversine(*locations[i], *locations[j]) * road
             m_m[i][j] = int(km * 1000.0)
             m_s[i][j] = int((km / max(speed_kmh, 1.0)) * 3600.0)
-    return m_m, m_s, "haversine_fallback"
+    return m_m, m_s
 
 
 def _google_distance_matrix(
@@ -292,7 +296,7 @@ class RouteOptimizer:
         if not requests:
             raise ValueError("optimize_trip needs at least one request")
 
-        rules = _load_vrp_rules(db)
+        rules = _cached_vrp_rules(db)
         if vehicle is None and vehicle_id is not None:
             vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
         if driver is None and driver_id is not None:
@@ -328,6 +332,20 @@ class RouteOptimizer:
         if total_demand > capacity:
             raise ValueError(
                 f"Vehicle capacity {capacity} < combined demand {total_demand}"
+            )
+
+        # Single-request fast path: depot→pickup→drop is the ONLY feasible
+        # route, so OR-Tools (model build + 4s search) is pure overhead here.
+        if len(requests) == 1:
+            return self._build_single_route(
+                request=requests[0],
+                vehicle=vehicle,
+                driver=driver,
+                matrix_m=m_m,
+                matrix_s=m_s,
+                source=source,
+                trip_key=trip_key,
+                rules=rules,
             )
 
         solved = self._solve_pdp(
@@ -378,9 +396,7 @@ class RouteOptimizer:
         Optimize a persisted DMFE batch (Shared Trip) — integrates directly
         with the output of DecisionEngine / BatchGenerator.
         """
-        import json
-
-        ids = json.loads(batch.request_ids_json or "[]")
+        ids = json_loads(batch.request_ids_json, [])
         requests = (
             db.query(SimulationRequest)
             .filter(SimulationRequest.id.in_(ids))
@@ -452,6 +468,103 @@ class RouteOptimizer:
 
     # ── OR-Tools model ───────────────────────────────────────────────────────
 
+    def _build_single_route(
+        self,
+        request: SimulationRequest,
+        vehicle: Vehicle,
+        driver: Optional[Driver],
+        matrix_m: List[List[int]],
+        matrix_s: List[List[int]],
+        source: str,
+        trip_key: Optional[str],
+        rules: Dict[str, float],
+    ) -> OptimizedRoute:
+        """
+        Deterministic route for a single request: depot → pickup → drop.
+
+        Mirrors the OR-Tools solution (same metric formulas, same arrival
+        semantics — service time is added when leaving a pickup) so output
+        is byte-identical to the solver path, just without solver startup
+        or the 4-second search limit.
+        """
+        service_sec = int(rules.get("service_time_min", 2.0) * 60.0)
+        arr_pickup = matrix_s[0][1]
+        arr_drop = matrix_s[0][1] + service_sec + matrix_s[1][2]
+
+        stop_order = [
+            Stop(
+                request_id=request.id,
+                action="pickup",
+                lat=request.pickup_lat,
+                lng=request.pickup_lng,
+                priority=request.priority or "Medium",
+                arrival_min=round(arr_pickup / 60.0, 1),
+            ),
+            Stop(
+                request_id=request.id,
+                action="drop",
+                lat=request.drop_lat,
+                lng=request.drop_lng,
+                priority=request.priority or "Medium",
+                arrival_min=round(arr_drop / 60.0, 1),
+            ),
+        ]
+
+        total_dist = matrix_m[0][1] + matrix_m[1][2]
+        total_km = total_dist / 1000.0
+        mileage = vehicle.mileage_kmpl or 15.0
+        fuel_l = total_km / max(mileage, 1.0)
+
+        max_delay = round(
+            arr_drop / 60.0 - arr_pickup / 60.0 - matrix_s[1][2] / 60.0, 1
+        )
+        baseline_km = (matrix_m[0][1] + matrix_m[1][2]) / 1000.0
+        saved_km = max(0.0, baseline_km - total_km)
+        fuel_saved = saved_km / max(mileage, 1.0)
+        co2_saved = fuel_saved * 2.3
+        cost = total_km * (vehicle.cost_per_km or 10.0)
+        score = min(
+            100.0,
+            max(0.0, 100.0 - (saved_km / max(baseline_km, 0.1)) * 50.0 + 50.0),
+        )
+        utilization = round(
+            ((request.demand or 1) / max(int(vehicle.capacity or 1), 1)) * 100.0, 1
+        )
+        trip_key = trip_key or f"TRIP-{request.id:04d}"
+
+        return OptimizedRoute(
+            trip_key=trip_key,
+            request_ids=[request.id],
+            is_shared=False,
+            driver_id=driver.id if driver else None,
+            vehicle_id=vehicle.id,
+            stop_order=stop_order,
+            total_distance_km=round(total_km, 2),
+            total_duration_min=round(arr_drop / 60.0, 1),
+            estimated_fuel_l=round(fuel_l, 2),
+            utilization_pct=utilization,
+            max_delay_min=max_delay,
+            matrix_source=source,
+            savings={
+                "distance_saved_km": round(saved_km, 2),
+                "fuel_saved_l": round(fuel_saved, 2),
+                "co2_saved_kg": round(co2_saved, 2),
+                "estimated_cost": round(cost, 2),
+                "optimization_score": round(score, 1),
+                "baseline_distance_km": round(baseline_km, 2),
+            },
+            explanation={
+                "requests": 1,
+                "direct_distance_km": round(baseline_km, 2),
+                "optimized_distance_km": round(total_km, 2),
+                "savings_percentage": round(
+                    (saved_km / max(baseline_km, 0.1)) * 100.0, 1
+                ),
+                "vehicle_used": vehicle.name,
+                "fuel_type": vehicle.fuel_type,
+            },
+        )
+
     def _solve_pdp(
         self,
         n_requests: int,
@@ -475,8 +588,21 @@ class RouteOptimizer:
 
         Node layout: node 0 = depot; request i → pickup 2i+1, drop 2i+2.
 
-        Objective (per arc): distance + w_time*duration + w_fuel*fuel cost,
-        minus the priority bonus when entering a High-priority pickup.
+        Objective (per arc): distance + w_time*duration + w_fuel*fuel cost
+        (+ w_cost*vehicle operating cost when configured), minus the
+        priority bonus when entering a High-priority pickup.
+
+        Static arc metrics (combined cost, travel time incl. service) are
+        precomputed ONCE into matrices; the OR-Tools callbacks are then pure
+        index lookups.  They are invoked thousands of times during local
+        search, so this removes the per-evaluation float arithmetic from
+        the solver hot path.
+
+        Delay handling: the time dimension caps total route time (hard).
+        When ``vrp_delay_penalty_per_min`` > 0, a SOFT delay penalty is
+        applied per drop (arrival beyond direct trip + delay budget costs
+        penalty) so delays are minimised — default 0 keeps the previous
+        behaviour byte-identical.
 
         If the time-constrained model is infeasible, the model is relaxed
         (time dimension dropped) and re-solved — graceful degradation.
@@ -485,14 +611,15 @@ class RouteOptimizer:
         n_nodes = 1 + 2 * n_requests
         if num_vehicles is None:
             num_vehicles = len(vehicle_capacities)
-        manager = pywrapcp.RoutingIndexManager(n_nodes, num_vehicles, 0)
-        routing = pywrapcp.RoutingModel(manager)
 
         w_time = rules.get("vrp_time_weight", 0.3)
         w_fuel = rules.get("vrp_fuel_weight", 1.0)
+        w_cost = rules.get("vrp_cost_km_weight", 0.0)
         fuel_price = rules.get("fuel_price_per_l", 100.0)
         prio_bonus = int(rules.get("vrp_priority_bonus_m", 2000.0))
         service_sec = int(rules.get("service_time_min", 2.0) * 60.0)
+        max_delay_sec = int(rules.get("max_allowed_delay_min", 20.0) * 60.0)
+        delay_penalty = rules.get("vrp_delay_penalty_per_min", 0.0)
 
         high_prio_pickups = {
             2 * i + 1 for i, p in enumerate(priorities) if p == "High"
@@ -500,17 +627,40 @@ class RouteOptimizer:
         mileage_m = max(float(vehicle_mileage or 15.0), 1.0)
         pickups = {2 * i + 1 for i in range(n_requests)}
 
-        def make_callbacks(mgr):
-            def combined_cb(from_index, to_index):
-                f = mgr.IndexToNode(from_index)
-                t = mgr.IndexToNode(to_index)
-                dist = matrix_m[f][t]
-                dur = matrix_s[f][t]
-                fuel_l = (dist / 1000.0) / mileage_m
-                cost = dist + w_time * dur + w_fuel * fuel_l * fuel_price
+        # Precompute static arc metrics once — callbacks are index lookups.
+        arc_cost: List[List[int]] = [[0] * n_nodes for _ in range(n_nodes)]
+        time_transit: List[List[int]] = [[0] * n_nodes for _ in range(n_nodes)]
+        for f in range(n_nodes):
+            mf = matrix_m[f]
+            sf = matrix_s[f]
+            for t in range(n_nodes):
+                dist = mf[t]
+                dur = sf[t]
+                cost = (
+                    dist
+                    + w_time * dur
+                    + w_fuel * ((dist / 1000.0) / mileage_m) * fuel_price
+                    + w_cost * vehicle_cost_km * (dist / 1000.0)
+                )
                 if t in high_prio_pickups and f != t:
                     cost -= prio_bonus
-                return int(max(cost, 0))
+                arc_cost[f][t] = int(max(cost, 0))
+                time_transit[f][t] = int(
+                    dur + (service_sec if f in pickups else 0)
+                )
+
+        # Tighter distance horizon: any route uses ≤ one outgoing arc per
+        # node, so the sum of per-row maxima bounds every feasible route.
+        # (The previous sum-of-all-cells + 1e6 bound was a valid-but-huge
+        # overestimate that slowed cumul propagation.)
+        max_dist = int(sum(max(row) for row in matrix_m)) + 1
+
+        def build_model(use_time_dim: bool):
+            mgr = pywrapcp.RoutingIndexManager(n_nodes, num_vehicles, 0)
+            r = pywrapcp.RoutingModel(mgr)
+
+            def combined_cb(from_index, to_index):
+                return arc_cost[mgr.IndexToNode(from_index)][mgr.IndexToNode(to_index)]
 
             def demand_cb(from_index):
                 node = mgr.IndexToNode(from_index)
@@ -520,79 +670,85 @@ class RouteOptimizer:
                 return demands[req] if node % 2 == 1 else -demands[req]
 
             def distance_cb(from_index, to_index):
-                f = mgr.IndexToNode(from_index)
-                t = mgr.IndexToNode(to_index)
-                return int(matrix_m[f][t])
+                return matrix_m[mgr.IndexToNode(from_index)][mgr.IndexToNode(to_index)]
 
-            return combined_cb, demand_cb, distance_cb
-
-        combined_cb, demand_cb, distance_cb = make_callbacks(manager)
-        transit_idx = routing.RegisterTransitCallback(combined_cb)
-        routing.SetArcCostEvaluatorOfAllVehicles(transit_idx)
-
-        # Capacity callback
-        demand_idx = routing.RegisterUnaryTransitCallback(demand_cb)
-        routing.AddDimensionWithVehicleCapacity(
-            demand_idx, 0, vehicle_capacities, True, "Capacity"
-        )
-
-        # Distance dimension — guarantees pickup-before-delivery ordering
-        # (distance strictly increases along the route)
-        dist_idx = routing.RegisterTransitCallback(distance_cb)
-        max_dist = int(sum(sum(row) for row in matrix_m)) + 1_000_000
-        routing.AddDimension(dist_idx, 0, max_dist, True, "Distance")
-        dist_dim = routing.GetDimensionOrDie("Distance")
-
-        # Pickup-before-delivery + same vehicle
-        for i in range(n_requests):
-            p_idx = manager.NodeToIndex(2 * i + 1)
-            d_idx = manager.NodeToIndex(2 * i + 2)
-            routing.AddPickupAndDelivery(p_idx, d_idx)
-            routing.solver().Add(
-                routing.VehicleVar(p_idx) == routing.VehicleVar(d_idx)
+            r.SetArcCostEvaluatorOfAllVehicles(
+                r.RegisterTransitCallback(combined_cb)
             )
-            routing.solver().Add(
-                dist_dim.CumulVar(p_idx) <= dist_dim.CumulVar(d_idx)
+            r.AddDimensionWithVehicleCapacity(
+                r.RegisterUnaryTransitCallback(demand_cb),
+                0, vehicle_capacities, True, "Capacity",
             )
+            r.AddDimension(
+                r.RegisterTransitCallback(distance_cb),
+                0, max_dist, True, "Distance",
+            )
+            d_dim = r.GetDimensionOrDie("Distance")
 
-        time_dim = None
+            # Pickup-before-delivery + same vehicle
+            for i in range(n_requests):
+                p_idx = mgr.NodeToIndex(2 * i + 1)
+                d_idx = mgr.NodeToIndex(2 * i + 2)
+                r.AddPickupAndDelivery(p_idx, d_idx)
+                r.solver().Add(r.VehicleVar(p_idx) == r.VehicleVar(d_idx))
+                r.solver().Add(d_dim.CumulVar(p_idx) <= d_dim.CumulVar(d_idx))
 
-        def solve(use_time_dim: bool):
-            nonlocal time_dim
+            t_dim = None
             if use_time_dim:
-                # Time callback: travel time + service time at pickups
-                def time_cb(from_index, to_index):
-                    f = manager.IndexToNode(from_index)
-                    t = manager.IndexToNode(to_index)
-                    dur = matrix_s[f][t]
-                    if f in pickups:
-                        dur += service_sec
-                    return int(dur)
-
-                time_idx = routing.RegisterTransitCallback(time_cb)
-                direct_sec = sum(matrix_s[2 * i + 1][2 * i + 2] for i in range(n_requests))
-                horizon = int(
-                    (rules.get("max_allowed_delay_min", 20.0) + direct_sec / 60.0) * 60.0
-                    + 60.0
+                # The old horizon covered only the pickup→drop legs, so the
+                # depot→pickup travel alone always exceeded it — the time
+                # model was ALWAYS infeasible and silently relaxed (also
+                # burning the full 4s search proving infeasibility).  Size
+                # the horizon against the whole route instead:
+                #   n=1: own trip (depot→pickup→drop + service) + delay budget
+                #   n>1: worst-case envelope (any route uses ≤1 outgoing arc
+                #        per node) so the shared route is always feasible.
+                own_trip_sec = max(
+                    matrix_s[0][2 * i + 1]
+                    + matrix_s[2 * i + 1][2 * i + 2]
+                    + service_sec
+                    for i in range(n_requests)
                 )
-                routing.AddDimension(time_idx, 0, horizon, True, "Time")
-                time_dim = routing.GetDimensionOrDie("Time")
+                route_envelope_sec = int(
+                    sum(max(row) for row in matrix_s) + service_sec * n_requests
+                )
+                horizon = int(
+                    (route_envelope_sec if n_requests > 1 else own_trip_sec)
+                    + max_delay_sec
+                    + 60
+                )
 
-            if num_vehicles > 1 and time_dim is not None:
-                # Utilisation: balance route lengths in fleet mode
-                time_dim.SetGlobalSpanCostCoefficient(max(50, 100 * n_requests))
+                def time_cb(from_index, to_index):
+                    return time_transit[mgr.IndexToNode(from_index)][mgr.IndexToNode(to_index)]
 
-            params = pywrapcp.DefaultRoutingSearchParameters()
-            params.first_solution_strategy = (
-                routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
-            )
-            params.local_search_metaheuristic = (
-                routing_enums_pb2.LocalSearchMetaheuristic.GUIDED_LOCAL_SEARCH
-            )
-            params.time_limit.seconds = 4
-            return routing.SolveWithParameters(params)
+                r.AddDimension(r.RegisterTransitCallback(time_cb), 0, horizon, True, "Time")
+                t_dim = r.GetDimensionOrDie("Time")
 
-        solution = solve(use_time_dim=True)
+                if delay_penalty > 0:
+                    # Soft delay cap: each drop's arrival should stay within
+                    # (direct trip + budget); any excess costs penalty/sec.
+                    per_sec = int(max(1.0, delay_penalty * 100.0 / 60.0))
+                    for i in range(n_requests):
+                        direct_sec = (
+                            matrix_s[0][2 * i + 1]
+                            + service_sec
+                            + matrix_s[2 * i + 1][2 * i + 2]
+                        )
+                        d_idx = mgr.NodeToIndex(2 * i + 2)
+                        t_dim.SetCumulVarSoftUpperBound(
+                            t_dim.CumulVar(d_idx),
+                            direct_sec + max_delay_sec,
+                            per_sec,
+                        )
+            return mgr, r, t_dim
+
+        manager, routing, time_dim = build_model(use_time_dim=True)
+        if num_vehicles > 1 and time_dim is not None:
+            # Utilisation: balance route lengths in fleet mode
+            time_dim.SetGlobalSpanCostCoefficient(max(50, 100 * n_requests))
+
+        params = _search_params(n_requests)
+        solution = routing.SolveWithParameters(params)
         if solution is None:
             logger.warning(
                 "OR-Tools: no solution with time dimension (%d requests) "
@@ -600,44 +756,14 @@ class RouteOptimizer:
                 n_requests,
             )
             # Relax: rebuild the model without the time dimension
-            manager = pywrapcp.RoutingIndexManager(n_nodes, num_vehicles, 0)
-            routing = pywrapcp.RoutingModel(manager)
-            combined_cb, demand_cb, distance_cb = make_callbacks(manager)
-            routing.SetArcCostEvaluatorOfAllVehicles(
-                routing.RegisterTransitCallback(combined_cb)
-            )
-            routing.AddDimensionWithVehicleCapacity(
-                routing.RegisterUnaryTransitCallback(demand_cb),
-                0, vehicle_capacities, True, "Capacity",
-            )
-            routing.AddDimension(
-                routing.RegisterTransitCallback(distance_cb),
-                0, max_dist, True, "Distance",
-            )
-            dist_dim = routing.GetDimensionOrDie("Distance")
-            for i in range(n_requests):
-                p_idx = manager.NodeToIndex(2 * i + 1)
-                d_idx = manager.NodeToIndex(2 * i + 2)
-                routing.AddPickupAndDelivery(p_idx, d_idx)
-                routing.solver().Add(
-                    routing.VehicleVar(p_idx) == routing.VehicleVar(d_idx)
-                )
-                routing.solver().Add(
-                    dist_dim.CumulVar(p_idx) <= dist_dim.CumulVar(d_idx)
-                )
-            params = pywrapcp.DefaultRoutingSearchParameters()
-            params.first_solution_strategy = (
-                routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
-            )
-            params.time_limit.seconds = 6
+            manager, routing, time_dim = build_model(use_time_dim=False)
+            params = _search_params(n_requests, relax=True)
             solution = routing.SolveWithParameters(params)
             time_dim = None
 
         if solution is None:
             return None
         return solution, manager, routing, time_dim
-
-    # ── Result assembly ──────────────────────────────────────────────────────
 
     def _build_route(
         self,
@@ -756,6 +882,27 @@ class RouteOptimizer:
                 "fuel_type": vehicle.fuel_type,
             },
         )
+
+
+def _search_params(n_requests: int, relax: bool = False) -> pywrapcp.DefaultRoutingSearchParameters:
+    """
+    OR-Tools search parameters.  AUTOMATIC metaheuristic converges in
+    milliseconds for the small shared-trip instances we dispatch (the
+    measured GUIDED_LOCAL_SEARCH produced byte-identical routes while always
+    burning the full time limit).  A slightly longer window is granted to the
+    relaxed re-solve (no time dimension).
+    """
+    params = pywrapcp.DefaultRoutingSearchParameters()
+    params.first_solution_strategy = (
+        routing_enums_pb2.FirstSolutionStrategy.PARALLEL_CHEAPEST_INSERTION
+    )
+    params.local_search_metaheuristic = (
+        routing_enums_pb2.LocalSearchMetaheuristic.AUTOMATIC
+    )
+    params.time_limit.seconds = int(
+        max(2, min(6, 3 * n_requests)) if relax else max(2, min(4, 2 * n_requests))
+    )
+    return params
 
 
 # Module-level singleton

@@ -83,6 +83,7 @@ export default function LiveMapContainer({
   selectedRequest,
   onSelectRequest,
   onClosePopup,
+  className = 'relative w-full h-[600px] rounded-xl overflow-hidden shadow-2xl border border-white/[0.08] bg-white/[0.02]',
 }) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   const isGoogleKeyPresent = Boolean(apiKey && apiKey !== 'your_google_maps_api_key_here');
@@ -156,7 +157,7 @@ export default function LiveMapContainer({
   const canUseGoogleMap = isGoogleKeyPresent && isLoaded && !loadError;
 
   return (
-    <div ref={wrapperRef} className="relative w-full h-[600px] rounded-xl overflow-hidden shadow-2xl border border-gray-700 bg-gray-900">
+    <div ref={wrapperRef} className={className}>
       {canUseGoogleMap ? (
         <GoogleMap
           mapContainerStyle={containerStyle}

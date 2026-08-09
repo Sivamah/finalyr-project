@@ -20,7 +20,7 @@ from typing import Optional, List, Callable, Dict, Any
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.db.models import SimulationRequest, Provider
+from app.db.models import SimulationRequest, Provider, Trip
 from app.services.mock_adapters import generate_simulation_requests
 from app.services.notification_service import log_system_notification
 
@@ -250,6 +250,21 @@ class QueueManager:
         avg_processing_time = round(sum(processing_times) / len(processing_times), 1) if processing_times else 0.0
         avg_queue_wait = round(sum(queue_wait_times) / len(queue_wait_times), 1) if queue_wait_times else 0.0
 
+        # Genuine completion duration: completed_at − created_at of finished trips
+        completion_times = []
+        for t in db.query(Trip).filter(Trip.completed_at.isnot(None)).all():
+            if t.created_at and t.completed_at:
+                c_at, d_at = t.created_at, t.completed_at
+                if c_at.tzinfo is None:
+                    c_at = c_at.replace(tzinfo=timezone.utc)
+                if d_at.tzinfo is None:
+                    d_at = d_at.replace(tzinfo=timezone.utc)
+                completion_times.append(max(1.0, (d_at - c_at).total_seconds()))
+        avg_completion_time = (
+            round(sum(completion_times) / len(completion_times), 1)
+            if completion_times else 0.0
+        )
+
         if total_requests > 1 and requests[0].created_at and requests[-1].created_at:
             span_sec = (requests[-1].created_at - requests[0].created_at).total_seconds()
             time_span_min = max(0.5, span_sec / 60.0)
@@ -392,7 +407,7 @@ class QueueManager:
             },
             "time_analytics": {
                 "avg_queue_waiting_time_sec": avg_queue_wait,
-                "avg_completion_time_sec": avg_processing_time,
+                "avg_completion_time_sec": avg_completion_time,
                 "peak_request_hour": peak_hour_str,
                 "hourly_distribution": [{"name": k, "count": v} for k, v in hourly_counts.items()],
                 "daily_distribution": [{"name": k, "count": v} for k, v in daily_counts.items()],
@@ -543,56 +558,142 @@ class SimulationEngine:
         }
 
     def _run_loop(self, db_factory: Callable[[], Session]) -> None:
-        """Core background loop."""
+        """
+        Core background loop — drives the FULL lifecycle:
+
+          1. Generate realistic request bursts (1-3 requests; 40% are
+             same-cluster surges so nearby pickups arrive within 5-8 min).
+          2. Every few ticks run the DMFE pipeline (compatibility → batching →
+             decision → OR-Tools route → driver/vehicle assignment → Trip).
+          3. Complete trips older than the simulated trip duration so their
+             drivers/vehicles are released for the next dispatch wave.
+
+        This replaced the old loop that "completed" pending requests directly
+        (which bypassed the DMFE pipeline and faked trip completions).
+        """
         logger.info("SimulationEngine loop started")
+        tick_count = 0
+
         while not self._stop_event.is_set():
             if not self._paused:
                 db = db_factory()
                 try:
-                    req = self.request_generator.generate_one(db)
-                    if req is not None:
+                    tick_count += 1
+
+                    # ── 1. Generate a burst of requests ─────────────────────
+                    # 40% chance: same-cluster surge (2-3 requests, tight
+                    # pickups, staggered timestamps) — realistic demand at
+                    # hotspots like Gandhipuram / RS Puram / Peelamedu.
+                    same_cluster = random.random() < 0.40
+                    burst_size = random.choices(
+                        [1, 2, 3],
+                        weights=[0.55, 0.30, 0.15],
+                        k=1,
+                    )[0]
+                    if same_cluster and burst_size < 2:
+                        burst_size = 2
+
+                    generated = generate_simulation_requests(
+                        count=burst_size,
+                        db=db,
+                        same_cluster=same_cluster,
+                        time_window_min=8.0,
+                    )
+                    for req in generated:
                         with self._lock:
                             self._total_generated += 1
-
                         r_type = (req.request_type or "ride").capitalize()
                         log_system_notification(
                             db,
                             title=f"New {r_type} Request Generated",
-                            description=f"Request #{req.id} created ({req.pickup_address or 'Origin'} → {req.drop_address or 'Destination'})",
+                            description=(
+                                f"Request #{req.id} created "
+                                f"({req.pickup_address or 'Origin'} → "
+                                f"{req.drop_address or 'Destination'})"
+                            ),
                             category="Information",
                             event_type="request_lifecycle",
                             request_id=req.id,
                         )
 
-                    # Complete oldest pending request periodically
-                    pending_reqs = (
+                    # ── 2. Run the DMFE pipeline periodically ──────────────
+                    # Every 3rd tick (≈9-15 s) or when the pending queue is
+                    # large, dispatch everything feasible.
+                    pending_count = (
                         db.query(SimulationRequest)
                         .filter(SimulationRequest.status == "Pending")
-                        .order_by(SimulationRequest.created_at.asc())
-                        .limit(5)
+                        .count()
+                    )
+                    if pending_count >= 6 and (tick_count % 3 == 0):
+                        try:
+                            from app.dmfe.pipeline import pipeline_runner
+                            result = pipeline_runner.run(db, limit=200)
+                            if result.dispatches:
+                                batch_trips = sum(
+                                    1 for d in result.dispatches if d["is_shared"]
+                                )
+                                log_system_notification(
+                                    db,
+                                    title="DMFE Dispatch Cycle",
+                                    description=(
+                                        f"{result.requests_processed} requests → "
+                                        f"{result.shared_trips} shared + "
+                                        f"{result.individual_trips} individual trips"
+                                        f"{f' ({batch_trips} batched)' if batch_trips else ''}"
+                                    ),
+                                    category="Success",
+                                    event_type="simulation_state",
+                                )
+                        except Exception as exc:
+                            logger.error("DMFE pipeline tick error: %s", exc)
+                            log_system_notification(
+                                db,
+                                title="DMFE Pipeline Error",
+                                description=f"Pipeline run failed: {str(exc)[:200]}",
+                                category="Error",
+                                event_type="system_error",
+                            )
+
+                    # ── 3. Complete trips that have run long enough ─────────
+                    # Time-compressed trips: any trip older than 60-120 s
+                    # finishes, releasing its driver/vehicle for new dispatch.
+                    from app.dmfe.driver_selection import complete_trip
+                    from app.db.models import Trip
+                    from datetime import timedelta
+
+                    trip_age_s = random.randint(60, 120)
+                    cutoff = datetime.now(timezone.utc) - timedelta(seconds=trip_age_s)
+                    due_trips = (
+                        db.query(Trip)
+                        .filter(
+                            Trip.status.in_(["Planned", "Active"]),
+                            Trip.created_at < cutoff,
+                        )
                         .all()
                     )
-                    if pending_reqs and (len(pending_reqs) > 8 or random.random() < 0.6):
-                        oldest = pending_reqs[0]
-                        oldest.status = "Completed"
-                        db.commit()
-
-                        old_type = (oldest.request_type or "ride").capitalize()
+                    for t in due_trips:
+                        completed = complete_trip(db, t.id, commit=False)
                         log_system_notification(
                             db,
-                            title="Request Completed",
-                            description=f"{old_type} request #{oldest.id} completed successfully",
+                            title="Trip Completed",
+                            description=(
+                                f"Trip {completed.trip_code} finished — "
+                                f"{'shared' if completed.is_shared else 'individual'} "
+                                f"{completed.total_distance_km:.1f} km, "
+                                f"{completed.fuel_saved_l:.2f} L fuel saved"
+                            ),
                             category="Success",
                             event_type="request_lifecycle",
-                            request_id=oldest.id,
                         )
+                    if due_trips:
+                        db.commit()
 
                 except Exception as exc:
                     logger.error("SimulationEngine tick error: %s", exc)
                     log_system_notification(
                         db,
                         title="Simulation Error",
-                        description=f"Engine loop error: {str(exc)}",
+                        description=f"Engine loop error: {str(exc)[:200]}",
                         category="Error",
                         event_type="system_error",
                     )

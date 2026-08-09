@@ -1,6 +1,5 @@
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
-from datetime import datetime
 
 
 class ScenarioCreate(BaseModel):

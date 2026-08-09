@@ -2,14 +2,8 @@ import React from 'react';
 import { Clock, CheckCircle2, Circle, ArrowDown } from 'lucide-react';
 
 export default function ExplanationTimeline({ timeline = [] }) {
-  const defaultEvents = [
-    { title: 'Simulation Created', timestamp: '19:40:00', status: 'completed', description: 'Request initiated by generator' },
-    { title: 'Request Queued', timestamp: '19:40:02', status: 'completed', description: 'Assigned to active queue' },
-    { title: 'Analysis Completed', timestamp: '19:40:05', status: 'completed', description: 'Feature vector scoring performed' },
-    { title: 'Decision Generated', timestamp: '19:40:06', status: 'completed', description: 'Recommendation finalized' },
-  ];
-
-  const events = timeline.length > 0 ? timeline : defaultEvents;
+  const hasEvents = Array.isArray(timeline) && timeline.length > 0;
+  const events = hasEvents ? timeline : [];
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-sm">
@@ -21,6 +15,11 @@ export default function ExplanationTimeline({ timeline = [] }) {
         <span className="text-xs text-gray-400">Audit Trace</span>
       </div>
 
+      {!hasEvents ? (
+        <p className="text-sm text-gray-500 py-6 text-center">
+          No lifecycle events recorded for this request.
+        </p>
+      ) : (
       <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-700">
         {events.map((event, idx) => {
           const isLast = idx === events.length - 1;
@@ -51,6 +50,7 @@ export default function ExplanationTimeline({ timeline = [] }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }

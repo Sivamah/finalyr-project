@@ -3,14 +3,14 @@ import { Activity, Bike, Utensils, Package, Clock } from 'lucide-react';
 
 export default function StatisticsPanel({ stats, lastUpdated }) {
   return (
-    <div className="bg-gray-800/90 backdrop-blur-md border border-gray-700/80 rounded-xl p-4 shadow-xl">
-      <div className="flex items-center justify-between border-b border-gray-700/60 pb-2 mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-300 flex items-center gap-1.5">
-          <Activity className="h-4 w-4 text-indigo-400" />
-          Live Request Telemetry
+    <div className="glass-panel-strong rounded-[20px] p-4 backdrop-blur-xl">
+      <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-white/[0.07]">
+        <h3 className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-brand-text-secondary flex items-center gap-1.5">
+          <Activity className="h-3.5 w-3.5 text-brand-primary" />
+          Live Telemetry
         </h3>
         {lastUpdated && (
-          <span className="text-[11px] text-gray-400 flex items-center gap-1">
+          <span className="text-[10.5px] text-brand-text-muted flex items-center gap-1 tabular-nums">
             <Clock className="h-3 w-3" />
             {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
           </span>
@@ -18,31 +18,23 @@ export default function StatisticsPanel({ stats, lastUpdated }) {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-lg p-2.5">
-          <p className="text-[11px] text-gray-400 font-medium">Active Requests</p>
-          <p className="text-lg font-bold text-white leading-tight">{stats.active || 0}</p>
+        <div className="surface-well rounded-xl p-2.5">
+          <p className="text-[10px] text-brand-text-muted font-medium">Active</p>
+          <p className="text-[18px] font-display font-semibold text-white leading-tight tabular-nums">{stats.active || 0}</p>
         </div>
 
-        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2.5">
-          <p className="text-[11px] text-blue-400 font-medium flex items-center gap-1">
-            <Bike className="h-3 w-3" /> Ride
-          </p>
-          <p className="text-lg font-bold text-blue-300 leading-tight">{stats.ride || 0}</p>
-        </div>
-
-        <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-2.5">
-          <p className="text-[11px] text-orange-400 font-medium flex items-center gap-1">
-            <Utensils className="h-3 w-3" /> Food
-          </p>
-          <p className="text-lg font-bold text-orange-300 leading-tight">{stats.food || 0}</p>
-        </div>
-
-        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2.5">
-          <p className="text-[11px] text-green-400 font-medium flex items-center gap-1">
-            <Package className="h-3 w-3" /> Parcel
-          </p>
-          <p className="text-lg font-bold text-green-300 leading-tight">{stats.parcel || 0}</p>
-        </div>
+        {[
+          { label: 'Ride', value: stats.ride || 0, icon: Bike, color: '#3B82F6' },
+          { label: 'Food', value: stats.food || 0, icon: Utensils, color: '#F59E0B' },
+          { label: 'Parcel', value: stats.parcel || 0, icon: Package, color: '#10B981' },
+        ].map((item) => (
+          <div key={item.label} className="surface-well rounded-xl p-2.5">
+            <p className="text-[10.5px] font-medium text-brand-text-secondary flex items-center gap-1">
+              <item.icon className="h-3 w-3" style={{ color: item.color }} /> {item.label}
+            </p>
+            <p className="text-[18px] font-display font-semibold text-white leading-tight tabular-nums mt-0.5">{item.value}</p>
+          </div>
+        ))}
       </div>
     </div>
   );

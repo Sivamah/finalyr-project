@@ -27,19 +27,20 @@ Design rules:
 
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.db.models import SimulationRequest, DriverAssignment
+from app.core.json_utils import json_loads
+from app.db.models import SimulationRequest
 from app.dmfe.batch_generator import BatchGenerator, CandidateGroup
-from app.dmfe.decision_engine import _get_threshold
-from app.dmfe.driver_selection import dispatch_trip, driver_selector
+from app.dmfe.compatibility import resolve_mode, _get_threshold
+from app.dmfe.decision_engine import _make_batch_row
+from app.dmfe.driver_selection import complete_stale_trips, dispatch_trip, DriverSelector
 from app.dmfe.models import DMFEBatch
-from app.dmfe.optimizer import _load_vrp_rules
+from app.dmfe.optimizer import _cached_vrp_rules
 
 logger = logging.getLogger(__name__)
 
@@ -84,21 +85,74 @@ def _persist_batch(
     reasons: List[str],
     factor_scores: Optional[Dict] = None,
     delay_min: float = 0.0,
+    factor_details: Optional[Dict] = None,
 ) -> DMFEBatch:
-    """Persist a DMFEBatch row exactly like decision_engine does."""
-    batch = DMFEBatch(
+    """Persist a DMFEBatch row (shared encoding with decision_engine)."""
+    batch = _make_batch_row(
         batch_code=batch_code,
-        request_ids_json=json.dumps(request_ids),
+        request_ids=request_ids,
         compatibility_score=score,
         decision=decision,
-        reason_json=json.dumps(reasons),
-        factor_scores_json=json.dumps(factor_scores or {}),
+        reasons=reasons,
+        factor_scores=factor_scores,
+        factor_details=factor_details,
         status=status,
         estimated_delay_min=delay_min,
     )
     db.add(batch)
     db.flush()
     return batch
+
+
+def _record_dispatch(batch: DMFEBatch, outcome: Dict) -> None:
+    """
+    Append the ACTUAL dispatch outcome (real trip numbers) to the batch
+    reasons so every accepted decision records its executed result.
+
+    Also snapshots the ROUTE-LEVEL predictions into the batch's factor
+    details (``details["predicted"]``) — the exact values the dispatcher
+    used.  The Trip outcome columns are seeded from these route estimates
+    at creation, so without this snapshot the prediction and the executed
+    outcome would be indistinguishable once real actuals are recorded
+    (Phase 4.1: the prediction must stay recoverable when the learning
+    engine ingests the trip).
+    """
+    import json
+
+    trip = outcome["trip"]
+    candidate = outcome["candidate"]
+    driver = outcome["driver"]
+    vehicle = outcome["vehicle"]
+    weights = candidate.weights_used or {}
+    w_sum = max(sum(weights.values()), 1e-9)
+    confidence = max(0.0, min(candidate.total_score / w_sum, 1.0))
+    line = (
+        f"✓ Dispatched: driver #{driver.id} ({driver.name}), vehicle "
+        f"#{vehicle.id} ({vehicle.vehicle_type}), ETA {candidate.eta_min:.1f} "
+        f"min, driver score {candidate.total_score:.3f}, actual delay "
+        f"{trip.max_delay_min:.1f} min, utilization {trip.utilization_pct:.0f}%, "
+        f"fuel {trip.fuel_l:.2f} L, CO₂ saved {trip.co2_saved_kg:.2f} kg, "
+        f"confidence {confidence * 100.0:.0f}%"
+    )
+    batch.reason_json = json.dumps([
+        *json_loads(batch.reason_json, []),
+        line,
+    ])
+
+    route = outcome.get("route_dict") or {}
+    best_route = route.get("best_route") or {}
+    explanation = route.get("explanation") or {}
+    predicted = {
+        "delay_min": round(float(route.get("max_delay_min") or 0.0), 2),
+        "utilization_pct": round(float(route.get("utilization_pct") or 0.0), 1),
+        "fuel_l": round(float(explanation.get("fuel_l") or 0.0), 2),
+        "distance_km": round(float(best_route.get("distance_km") or 0.0), 2),
+    }
+    details = json_loads(batch.factor_details_json, {})
+    if not isinstance(details, dict):
+        details = {}
+    details["predicted"] = predicted
+    batch.factor_details_json = json.dumps(details)
 
 
 class PipelineRunner:
@@ -113,6 +167,11 @@ class PipelineRunner:
         self._generator = BatchGenerator()
 
     def run(self, db: Session, limit: int = 200) -> PipelineResult:
+        # ── 0. Release stale trips to free drivers/vehicles ─────────────
+        released = complete_stale_trips(db, max_age_min=10.0)
+        if released:
+            logger.info("Pipeline pre-run: released %d stale trip(s)", released)
+
         pending: List[SimulationRequest] = (
             db.query(SimulationRequest)
             .filter(SimulationRequest.status == "Pending")
@@ -127,7 +186,19 @@ class PipelineRunner:
             )
 
         threshold = _get_threshold(db)
-        rules = _load_vrp_rules(db)
+        rules = _cached_vrp_rules(db)
+        mode = resolve_mode(db)
+        if mode == "adaptive":
+            # A-DMFE: log the context-adjusted effective threshold
+            try:
+                from app.dmfe.adaptive.context import ContextAwarenessEngine
+                from app.dmfe.adaptive.decision import effective_threshold
+
+                threshold = effective_threshold(
+                    threshold, ContextAwarenessEngine().build(db, pending)
+                )
+            except Exception:
+                pass
         result = PipelineResult(requests_processed=len(pending))
 
         # ── 1+2. Compatibility + batching (gates A–C) ──────────────────────
@@ -143,6 +214,9 @@ class PipelineRunner:
             for r in cg.requests:
                 covered_ids[r.id] = "shared"
 
+        # ── 3. Build global DriverPool once ─────────────────────────────────
+        driver_pool = DriverSelector().build_pool(db)
+
         # ── 4+5+6. Dispatch shared batches ──────────────────────────────────
         for cg in feasible:
             ids = {r.id for r in cg.requests}
@@ -150,19 +224,20 @@ class PipelineRunner:
                 continue  # rejected by Gate D — handled as individuals
 
             batch_code = f"BATCH-{cg.requests[0].id:04d}-{cg.requests[-1].id:04d}"
-            batch = _persist_batch(
-                db, batch_code,
-                [r.id for r in cg.requests],
-                cg.result.compatibility_score,
-                decision="Compatible", status="Pending",
-                reasons=list(cg.result.reasons),
-                factor_scores=cg.result.factor_scores,
-                delay_min=cg.result.estimated_delay_min,
-            )
             try:
+                batch = _persist_batch(
+                    db, batch_code,
+                    [r.id for r in cg.requests],
+                    cg.result.compatibility_score,
+                    decision="Compatible", status="Pending",
+                    reasons=list(cg.result.reasons),
+                    factor_scores=cg.result.factor_scores,
+                    delay_min=cg.result.estimated_delay_min,
+                    factor_details=cg.result.factor_details,
+                )
                 outcome = dispatch_trip(
                     db, cg.requests, batch=batch,
-                    trip_key=batch_code,
+                    trip_key=batch_code, pool=driver_pool, commit=True
                 )
             except ValueError as exc:
                 db.rollback()
@@ -177,20 +252,24 @@ class PipelineRunner:
 
             result.shared_trips += 1
             result.assignments_created += 1
+            _record_dispatch(batch, outcome)
+            driver_pool.drivers = [d for d in driver_pool.drivers if d.id != outcome["driver"].id]
+            driver_pool.vehicles = [v for v in driver_pool.vehicles if v.id != outcome["vehicle"].id]
             result.dispatches.append(self._outcome_to_dict(outcome, batch_code))
 
         # ── 4+5+6. Dispatch individual trips ────────────────────────────────
         for req in pending:
             if req.id in covered_ids:
                 continue
-            batch = _persist_batch(
-                db, f"TRIP-{req.id:04d}", [req.id],
-                0.0, decision="Individual", status="Individual",
-                reasons=["Solo trip — no compatible batch found"],
-            )
             try:
+                batch = _persist_batch(
+                    db, f"TRIP-{req.id:04d}", [req.id],
+                    0.0, decision="Individual", status="Individual",
+                    reasons=["Solo trip — no compatible batch found"],
+                )
                 outcome = dispatch_trip(
                     db, [req], batch=batch, trip_key=f"TRIP-{req.id:04d}",
+                    pool=driver_pool, commit=True
                 )
             except ValueError as exc:
                 db.rollback()
@@ -205,6 +284,9 @@ class PipelineRunner:
 
             result.individual_trips += 1
             result.assignments_created += 1
+            _record_dispatch(batch, outcome)
+            driver_pool.drivers = [d for d in driver_pool.drivers if d.id != outcome["driver"].id]
+            driver_pool.vehicles = [v for v in driver_pool.vehicles if v.id != outcome["vehicle"].id]
             result.dispatches.append(
                 self._outcome_to_dict(outcome, f"TRIP-{req.id:04d}")
             )

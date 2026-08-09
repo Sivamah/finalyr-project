@@ -1,5 +1,0 @@
-workload,total_requests,shared_trips,individual_trips,unassigned,avg_compatibility_score,avg_route_distance_km,avg_travel_time_min,avg_waiting_min,vehicle_utilization_pct,driver_pool_utilization_pct,fuel_l,fuel_saved_l,co2_kg,co2_saved_kg,requests_completed,requests_failed,avg_processing_ms_per_request,route_optimization_total_s,driver_selection_total_s,batch_formation_total_s,waves_completion_rate_pct
-50,50,13,24,0,79.57,13.14,34.21,4.89,74.46,61.7,23.5,3.7,54.05,8.55,50,0,3023.57,148.149,1.823,0.458,100.0
-100,100,35,24,6,81.18,15.33,37.64,5.38,78.88,98.3,44.18,14.27,101.61,32.86,94,6,2336.96,228.229,2.46,1.749,94.0
-250,250,50,10,90,88.75,15.87,40.44,5.76,76.56,100.0,47.56,25.77,109.39,59.26,110,140,995.36,232.223,3.538,11.491,44.0
-500,500,50,10,225,92.54,15.44,38.8,4.75,72.92,100.0,45.1,32.47,103.73,74.64,110,390,551.79,228.237,5.432,39.749,22.0

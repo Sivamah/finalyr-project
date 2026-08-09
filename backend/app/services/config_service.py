@@ -1,9 +1,11 @@
 import json
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from datetime import datetime, timezone
 from sqlalchemy.orm import Session
+from app.core.json_utils import json_loads
 from app.db.models import SystemConfig, ConfigAuditLog
+from app.dmfe.compatibility import clear_config_cache
 from app.services.notification_service import log_system_notification
 
 logger = logging.getLogger(__name__)
@@ -83,10 +85,7 @@ class ConfigService:
         elif data_type == "bool":
             return val_str.lower() in ("true", "1", "yes")
         elif data_type == "json":
-            try:
-                return json.loads(val_str)
-            except Exception:
-                return {}
+            return json_loads(val_str, {})
         return val_str
 
     def get_grouped_configs(self, db: Session) -> Dict[str, Dict[str, Any]]:
@@ -144,6 +143,9 @@ class ConfigService:
         db.commit()
 
         if updated_count > 0:
+            # Config values changed — drop the TTL caches so the new values
+            # are seen immediately (not after the 15s `_CONFIG_CACHE_TTL`).
+            clear_config_cache()
             log_system_notification(
                 db,
                 title="Configuration Updated",

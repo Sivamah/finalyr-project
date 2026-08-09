@@ -3,6 +3,8 @@ import { Plus, Edit2, Trash2, Truck, X, ChevronDown, ChevronUp, Zap, Building2 }
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+import PageHeader from '../components/ui/PageHeader';
+
 const PROVIDER_TYPES = [
   { value: 'Ride', label: 'Ride', examples: 'Rapido, Uber, Ola' },
   { value: 'Food', label: 'Food', examples: 'Swiggy, Zomato' },
@@ -116,21 +118,25 @@ export default function ProviderManagement() {
   const typeColors = { Ride: 'bg-blue-600', Food: 'bg-orange-600', Parcel: 'bg-purple-600' };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Provider Management</h1>
-          <p className="text-gray-400 mt-1">Manage simulated transportation providers</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={handleSeed} disabled={seeding} className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 rounded-lg text-white font-medium transition-colors disabled:opacity-50">
-            <Zap className={`h-4 w-4 ${seeding ? 'animate-pulse' : ''}`} /> {seeding ? 'Seeding...' : 'Seed Providers'}
-          </button>
-          <button onClick={() => { setEditing(null); setForm({ name: '', provider_type: 'Ride', description: '' }); setShowForm(true); }} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-medium transition-colors">
-            <Plus className="h-4 w-4" /> Add Provider
-          </button>
-        </div>
-      </div>
+    <div className="pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="System"
+        title="Provider Network"
+        description="Manage the simulated transportation providers feeding the feasibility engine."
+        actions={
+          <div className="flex gap-2.5">
+            <button onClick={handleSeed} disabled={seeding} className="btn-glass !text-brand-warning disabled:opacity-50 disabled:cursor-not-allowed">
+              <Zap className={`h-4 w-4 ${seeding ? 'animate-pulse' : ''}`} /> {seeding ? 'Seeding…' : 'Seed Providers'}
+            </button>
+            <button
+              onClick={() => { setEditing(null); setForm({ name: '', provider_type: 'Ride', description: '' }); setShowForm(true); }}
+              className="btn-primary"
+            >
+              <Plus className="h-4 w-4" /> Add Provider
+            </button>
+          </div>
+        }
+      />
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowForm(false)}>

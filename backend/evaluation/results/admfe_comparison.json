@@ -1,0 +1,982 @@
+{
+  "meta": {
+    "workloads": [
+      50,
+      100,
+      250,
+      500
+    ],
+    "reps": 1,
+    "metrics_defined_in": "run_admfe_experiments.py (METRICS)"
+  },
+  "comparison": {
+    "50": {
+      "requests processed": {
+        "path": "single_pass.requests_processed",
+        "static": 50,
+        "adaptive": 50,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "shared trips": {
+        "path": "single_pass.shared_trips",
+        "static": 15,
+        "adaptive": 15,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "individual trips": {
+        "path": "single_pass.individual_trips",
+        "static": 20,
+        "adaptive": 19,
+        "delta_pct": -5.0,
+        "lower_is_better": null,
+        "verdict": "n/a"
+      },
+      "unassigned": {
+        "path": "single_pass.unassigned_count",
+        "static": 0,
+        "adaptive": 0,
+        "delta_pct": 0.0,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      },
+      "batching rate %": {
+        "path": "single_pass.trips.batching_rate_pct",
+        "static": 58.96,
+        "adaptive": 55.36,
+        "delta_pct": -6.11,
+        "lower_is_better": false,
+        "verdict": "regression"
+      },
+      "avg vehicle util %": {
+        "path": "single_pass.trips.avg_utilization_pct",
+        "static": 75.632,
+        "adaptive": 75.376,
+        "delta_pct": -0.34,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "total fuel L": {
+        "path": "single_pass.trips.total_fuel_l",
+        "static": 17.414,
+        "adaptive": 16.658,
+        "delta_pct": -4.34,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "fuel saved L": {
+        "path": "single_pass.trips.fuel_saved_l",
+        "static": 4.988,
+        "adaptive": 6.028,
+        "delta_pct": 20.85,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 emitted kg": {
+        "path": "single_pass.trips.co2_emitted_kg",
+        "static": 40.052,
+        "adaptive": 38.312,
+        "delta_pct": -4.34,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "CO2 saved kg": {
+        "path": "single_pass.trips.co2_saved_kg",
+        "static": 11.472,
+        "adaptive": 13.87,
+        "delta_pct": 20.9,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 reduction %": {
+        "path": "single_pass.trips.co2_reduction_vs_internal_baseline_pct",
+        "static": 18.0,
+        "adaptive": 20.1,
+        "delta_pct": 11.67,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "total distance km": {
+        "path": "single_pass.trips.total_distance_km",
+        "static": 412.178,
+        "adaptive": 399.202,
+        "delta_pct": -3.15,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg travel min": {
+        "path": "single_pass.trips.avg_travel_time_min",
+        "static": 34.538,
+        "adaptive": 33.906,
+        "delta_pct": -1.83,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg waiting min": {
+        "path": "single_pass.trips.avg_waiting_min",
+        "static": 4.41,
+        "adaptive": 4.53,
+        "delta_pct": 2.72,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "avg delay min": {
+        "path": "single_pass.trips.avg_delay_min",
+        "static": 5.756,
+        "adaptive": 5.068,
+        "delta_pct": -11.95,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "requests completed": {
+        "path": "single_pass.trips.requests_completed",
+        "static": 50,
+        "adaptive": 50,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "requests failed": {
+        "path": "single_pass.trips.requests_failed",
+        "static": 0,
+        "adaptive": 0,
+        "delta_pct": 0.0,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      },
+      "driver pool util %": {
+        "path": "single_pass.drivers.driver_pool_utilization_pct",
+        "static": 52.66,
+        "adaptive": 52.02,
+        "delta_pct": -1.22,
+        "lower_is_better": false,
+        "verdict": "regression"
+      },
+      "avg req/batch": {
+        "path": "single_pass.batches.avg_requests_per_batch",
+        "static": 2.0,
+        "adaptive": 2.07,
+        "delta_pct": 3.5,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "max req/batch": {
+        "path": "single_pass.batches.max_requests_per_batch",
+        "static": 2,
+        "adaptive": 3,
+        "delta_pct": 50.0,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "waves completion %": {
+        "path": "waves.completion_rate_pct",
+        "static": 100.0,
+        "adaptive": 100.0,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "waves distance km": {
+        "path": "waves.total_distance_km",
+        "static": 424.33,
+        "adaptive": 421.51,
+        "delta_pct": -0.66,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "waves fuel L": {
+        "path": "waves.total_fuel_l",
+        "static": 17.95,
+        "adaptive": 18.08,
+        "delta_pct": 0.72,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "avg proc ms/req": {
+        "path": "timing.avg_processing_ms_per_request",
+        "static": 15.378,
+        "adaptive": 17.382,
+        "delta_pct": 13.03,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "batch formation s": {
+        "path": "timing.batch_formation_total_s",
+        "static": 0.015,
+        "adaptive": 0.111,
+        "delta_pct": 640.0,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "route optimisation s": {
+        "path": "timing.route_optimization_total_s",
+        "static": 0.044,
+        "adaptive": 0.032,
+        "delta_pct": -27.27,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "driver selection s": {
+        "path": "timing.driver_selection_total_s",
+        "static": 0.033,
+        "adaptive": 0.047,
+        "delta_pct": 42.42,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "pipeline total s": {
+        "path": "timing.pipeline_total_s",
+        "static": 0.769,
+        "adaptive": 0.869,
+        "delta_pct": 13.0,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "SQL queries": {
+        "path": "timing.sql_queries",
+        "static": 3380.4,
+        "adaptive": 3400.2,
+        "delta_pct": 0.59,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "learning total s": {
+        "path": "timing.learning_total_s",
+        "static": 0,
+        "adaptive": 0,
+        "delta_pct": 0.0,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      }
+    },
+    "100": {
+      "requests processed": {
+        "path": "single_pass.requests_processed",
+        "static": 100,
+        "adaptive": 100,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "shared trips": {
+        "path": "single_pass.shared_trips",
+        "static": 41,
+        "adaptive": 41,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "individual trips": {
+        "path": "single_pass.individual_trips",
+        "static": 18,
+        "adaptive": 16,
+        "delta_pct": -11.11,
+        "lower_is_better": null,
+        "verdict": "n/a"
+      },
+      "unassigned": {
+        "path": "single_pass.unassigned_count",
+        "static": 0,
+        "adaptive": 0,
+        "delta_pct": 0.0,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      },
+      "batching rate %": {
+        "path": "single_pass.trips.batching_rate_pct",
+        "static": 66.46,
+        "adaptive": 64.38,
+        "delta_pct": -3.13,
+        "lower_is_better": false,
+        "verdict": "regression"
+      },
+      "avg vehicle util %": {
+        "path": "single_pass.trips.avg_utilization_pct",
+        "static": 73.122,
+        "adaptive": 72.676,
+        "delta_pct": -0.61,
+        "lower_is_better": false,
+        "verdict": "regression"
+      },
+      "total fuel L": {
+        "path": "single_pass.trips.total_fuel_l",
+        "static": 41.21,
+        "adaptive": 39.306,
+        "delta_pct": -4.62,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "fuel saved L": {
+        "path": "single_pass.trips.fuel_saved_l",
+        "static": 14.094,
+        "adaptive": 15.678,
+        "delta_pct": 11.24,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 emitted kg": {
+        "path": "single_pass.trips.co2_emitted_kg",
+        "static": 94.784,
+        "adaptive": 90.402,
+        "delta_pct": -4.62,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "CO2 saved kg": {
+        "path": "single_pass.trips.co2_saved_kg",
+        "static": 32.446,
+        "adaptive": 36.092,
+        "delta_pct": 11.24,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 reduction %": {
+        "path": "single_pass.trips.co2_reduction_vs_internal_baseline_pct",
+        "static": 27.8,
+        "adaptive": 29.4,
+        "delta_pct": 5.76,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "total distance km": {
+        "path": "single_pass.trips.total_distance_km",
+        "static": 834.838,
+        "adaptive": 807.75,
+        "delta_pct": -3.24,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg travel min": {
+        "path": "single_pass.trips.avg_travel_time_min",
+        "static": 36.924,
+        "adaptive": 35.972,
+        "delta_pct": -2.58,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg waiting min": {
+        "path": "single_pass.trips.avg_waiting_min",
+        "static": 5.44,
+        "adaptive": 5.41,
+        "delta_pct": -0.55,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg delay min": {
+        "path": "single_pass.trips.avg_delay_min",
+        "static": 6.072,
+        "adaptive": 5.44,
+        "delta_pct": -10.41,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "requests completed": {
+        "path": "single_pass.trips.requests_completed",
+        "static": 99.2,
+        "adaptive": 99.8,
+        "delta_pct": 0.6,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "requests failed": {
+        "path": "single_pass.trips.requests_failed",
+        "static": 0.8,
+        "adaptive": 0.2,
+        "delta_pct": -75.0,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "driver pool util %": {
+        "path": "single_pass.drivers.driver_pool_utilization_pct",
+        "static": 99.32,
+        "adaptive": 99.0,
+        "delta_pct": -0.32,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "avg req/batch": {
+        "path": "single_pass.batches.avg_requests_per_batch",
+        "static": 2.0,
+        "adaptive": 2.05,
+        "delta_pct": 2.5,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "max req/batch": {
+        "path": "single_pass.batches.max_requests_per_batch",
+        "static": 2,
+        "adaptive": 3,
+        "delta_pct": 50.0,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "waves completion %": {
+        "path": "waves.completion_rate_pct",
+        "static": 100.0,
+        "adaptive": 100.0,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "waves distance km": {
+        "path": "waves.total_distance_km",
+        "static": 780.24,
+        "adaptive": 775.89,
+        "delta_pct": -0.56,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "waves fuel L": {
+        "path": "waves.total_fuel_l",
+        "static": 45.4,
+        "adaptive": 44.1,
+        "delta_pct": -2.86,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg proc ms/req": {
+        "path": "timing.avg_processing_ms_per_request",
+        "static": 11.832,
+        "adaptive": 13.75,
+        "delta_pct": 16.21,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "batch formation s": {
+        "path": "timing.batch_formation_total_s",
+        "static": 0.043,
+        "adaptive": 0.189,
+        "delta_pct": 339.53,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "route optimisation s": {
+        "path": "timing.route_optimization_total_s",
+        "static": 0.087,
+        "adaptive": 0.093,
+        "delta_pct": 6.9,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "driver selection s": {
+        "path": "timing.driver_selection_total_s",
+        "static": 0.046,
+        "adaptive": 0.069,
+        "delta_pct": 50.0,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "pipeline total s": {
+        "path": "timing.pipeline_total_s",
+        "static": 1.183,
+        "adaptive": 1.375,
+        "delta_pct": 16.23,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "SQL queries": {
+        "path": "timing.sql_queries",
+        "static": 4698.4,
+        "adaptive": 4768,
+        "delta_pct": 1.48,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "learning total s": {
+        "path": "timing.learning_total_s",
+        "static": 0,
+        "adaptive": 0,
+        "delta_pct": 0.0,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      }
+    },
+    "250": {
+      "requests processed": {
+        "path": "single_pass.requests_processed",
+        "static": 250,
+        "adaptive": 250,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "shared trips": {
+        "path": "single_pass.shared_trips",
+        "static": 50,
+        "adaptive": 50,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "individual trips": {
+        "path": "single_pass.individual_trips",
+        "static": 10,
+        "adaptive": 10,
+        "delta_pct": 0.0,
+        "lower_is_better": null,
+        "verdict": "n/a"
+      },
+      "unassigned": {
+        "path": "single_pass.unassigned_count",
+        "static": 74,
+        "adaptive": 72,
+        "delta_pct": -2.7,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "batching rate %": {
+        "path": "single_pass.trips.batching_rate_pct",
+        "static": 83.3,
+        "adaptive": 83.3,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "avg vehicle util %": {
+        "path": "single_pass.trips.avg_utilization_pct",
+        "static": 75.498,
+        "adaptive": 76.846,
+        "delta_pct": 1.79,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "total fuel L": {
+        "path": "single_pass.trips.total_fuel_l",
+        "static": 41.668,
+        "adaptive": 42.214,
+        "delta_pct": 1.31,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "fuel saved L": {
+        "path": "single_pass.trips.fuel_saved_l",
+        "static": 31.032,
+        "adaptive": 34.348,
+        "delta_pct": 10.69,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 emitted kg": {
+        "path": "single_pass.trips.co2_emitted_kg",
+        "static": 95.838,
+        "adaptive": 97.09,
+        "delta_pct": 1.31,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "CO2 saved kg": {
+        "path": "single_pass.trips.co2_saved_kg",
+        "static": 71.346,
+        "adaptive": 78.998,
+        "delta_pct": 10.73,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 reduction %": {
+        "path": "single_pass.trips.co2_reduction_vs_internal_baseline_pct",
+        "static": 42.8,
+        "adaptive": 44.9,
+        "delta_pct": 4.91,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "total distance km": {
+        "path": "single_pass.trips.total_distance_km",
+        "static": 831.18,
+        "adaptive": 846.478,
+        "delta_pct": 1.84,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "avg travel min": {
+        "path": "single_pass.trips.avg_travel_time_min",
+        "static": 36.888,
+        "adaptive": 37.552,
+        "delta_pct": 1.8,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "avg waiting min": {
+        "path": "single_pass.trips.avg_waiting_min",
+        "static": 4.72,
+        "adaptive": 4.47,
+        "delta_pct": -5.3,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg delay min": {
+        "path": "single_pass.trips.avg_delay_min",
+        "static": 4.932,
+        "adaptive": 4.616,
+        "delta_pct": -6.41,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "requests completed": {
+        "path": "single_pass.trips.requests_completed",
+        "static": 110,
+        "adaptive": 111.6,
+        "delta_pct": 1.45,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "requests failed": {
+        "path": "single_pass.trips.requests_failed",
+        "static": 140,
+        "adaptive": 138.4,
+        "delta_pct": -1.14,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "driver pool util %": {
+        "path": "single_pass.drivers.driver_pool_utilization_pct",
+        "static": 100.0,
+        "adaptive": 100.0,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "avg req/batch": {
+        "path": "single_pass.batches.avg_requests_per_batch",
+        "static": 2.0,
+        "adaptive": 2.04,
+        "delta_pct": 2.0,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "max req/batch": {
+        "path": "single_pass.batches.max_requests_per_batch",
+        "static": 2,
+        "adaptive": 3,
+        "delta_pct": 50.0,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "waves completion %": {
+        "path": "waves.completion_rate_pct",
+        "static": 100.0,
+        "adaptive": 100.0,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "waves distance km": {
+        "path": "waves.total_distance_km",
+        "static": 1965.35,
+        "adaptive": 1923.72,
+        "delta_pct": -2.12,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "waves fuel L": {
+        "path": "waves.total_fuel_l",
+        "static": 112.13,
+        "adaptive": 107.5,
+        "delta_pct": -4.13,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg proc ms/req": {
+        "path": "timing.avg_processing_ms_per_request",
+        "static": 8.298,
+        "adaptive": 19.728,
+        "delta_pct": 137.74,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "batch formation s": {
+        "path": "timing.batch_formation_total_s",
+        "static": 0.345,
+        "adaptive": 0.945,
+        "delta_pct": 173.91,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "route optimisation s": {
+        "path": "timing.route_optimization_total_s",
+        "static": 0.111,
+        "adaptive": 0.085,
+        "delta_pct": -23.42,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "driver selection s": {
+        "path": "timing.driver_selection_total_s",
+        "static": 0.356,
+        "adaptive": 0.381,
+        "delta_pct": 7.02,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "pipeline total s": {
+        "path": "timing.pipeline_total_s",
+        "static": 2.074,
+        "adaptive": 4.931,
+        "delta_pct": 137.75,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "SQL queries": {
+        "path": "timing.sql_queries",
+        "static": 6533,
+        "adaptive": 6702,
+        "delta_pct": 2.59,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "learning total s": {
+        "path": "timing.learning_total_s",
+        "static": 0,
+        "adaptive": 0,
+        "delta_pct": 0.0,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      }
+    },
+    "500": {
+      "requests processed": {
+        "path": "single_pass.requests_processed",
+        "static": 500,
+        "adaptive": 500,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "shared trips": {
+        "path": "single_pass.shared_trips",
+        "static": 50,
+        "adaptive": 50,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "individual trips": {
+        "path": "single_pass.individual_trips",
+        "static": 10,
+        "adaptive": 10,
+        "delta_pct": 0.0,
+        "lower_is_better": null,
+        "verdict": "n/a"
+      },
+      "unassigned": {
+        "path": "single_pass.unassigned_count",
+        "static": 204,
+        "adaptive": 202,
+        "delta_pct": -0.98,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "batching rate %": {
+        "path": "single_pass.trips.batching_rate_pct",
+        "static": 83.3,
+        "adaptive": 83.3,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "avg vehicle util %": {
+        "path": "single_pass.trips.avg_utilization_pct",
+        "static": 76.033,
+        "adaptive": 82.13,
+        "delta_pct": 8.02,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "total fuel L": {
+        "path": "single_pass.trips.total_fuel_l",
+        "static": 40.41,
+        "adaptive": 41.503,
+        "delta_pct": 2.7,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "fuel saved L": {
+        "path": "single_pass.trips.fuel_saved_l",
+        "static": 31.703,
+        "adaptive": 33.82,
+        "delta_pct": 6.68,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 emitted kg": {
+        "path": "single_pass.trips.co2_emitted_kg",
+        "static": 92.943,
+        "adaptive": 95.46,
+        "delta_pct": 2.71,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "CO2 saved kg": {
+        "path": "single_pass.trips.co2_saved_kg",
+        "static": 72.923,
+        "adaptive": 77.78,
+        "delta_pct": 6.66,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "CO2 reduction %": {
+        "path": "single_pass.trips.co2_reduction_vs_internal_baseline_pct",
+        "static": 43.8,
+        "adaptive": 45.0,
+        "delta_pct": 2.74,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "total distance km": {
+        "path": "single_pass.trips.total_distance_km",
+        "static": 835.153,
+        "adaptive": 846.377,
+        "delta_pct": 1.34,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "avg travel min": {
+        "path": "single_pass.trips.avg_travel_time_min",
+        "static": 37.05,
+        "adaptive": 37.527,
+        "delta_pct": 1.29,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "avg waiting min": {
+        "path": "single_pass.trips.avg_waiting_min",
+        "static": 4.34,
+        "adaptive": 4.48,
+        "delta_pct": 3.23,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "avg delay min": {
+        "path": "single_pass.trips.avg_delay_min",
+        "static": 4.41,
+        "adaptive": 4.407,
+        "delta_pct": -0.07,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      },
+      "requests completed": {
+        "path": "single_pass.trips.requests_completed",
+        "static": 110,
+        "adaptive": 111,
+        "delta_pct": 0.91,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "requests failed": {
+        "path": "single_pass.trips.requests_failed",
+        "static": 390,
+        "adaptive": 389,
+        "delta_pct": -0.26,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      },
+      "driver pool util %": {
+        "path": "single_pass.drivers.driver_pool_utilization_pct",
+        "static": 100.0,
+        "adaptive": 100.0,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "avg req/batch": {
+        "path": "single_pass.batches.avg_requests_per_batch",
+        "static": 2.0,
+        "adaptive": 2.02,
+        "delta_pct": 1.0,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "max req/batch": {
+        "path": "single_pass.batches.max_requests_per_batch",
+        "static": 2,
+        "adaptive": 3,
+        "delta_pct": 50.0,
+        "lower_is_better": false,
+        "verdict": "improvement"
+      },
+      "waves completion %": {
+        "path": "waves.completion_rate_pct",
+        "static": 100.0,
+        "adaptive": 100.0,
+        "delta_pct": 0.0,
+        "lower_is_better": false,
+        "verdict": "neutral"
+      },
+      "waves distance km": {
+        "path": "waves.total_distance_km",
+        "static": 3990.92,
+        "adaptive": 3818.96,
+        "delta_pct": -4.31,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "waves fuel L": {
+        "path": "waves.total_fuel_l",
+        "static": 234.37,
+        "adaptive": 220.89,
+        "delta_pct": -5.75,
+        "lower_is_better": true,
+        "verdict": "improvement"
+      },
+      "avg proc ms/req": {
+        "path": "timing.avg_processing_ms_per_request",
+        "static": 8.763,
+        "adaptive": 15.567,
+        "delta_pct": 77.64,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "batch formation s": {
+        "path": "timing.batch_formation_total_s",
+        "static": 1.252,
+        "adaptive": 4.263,
+        "delta_pct": 240.5,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "route optimisation s": {
+        "path": "timing.route_optimization_total_s",
+        "static": 0.093,
+        "adaptive": 0.101,
+        "delta_pct": 8.6,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "driver selection s": {
+        "path": "timing.driver_selection_total_s",
+        "static": 0.894,
+        "adaptive": 1.0,
+        "delta_pct": 11.86,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "pipeline total s": {
+        "path": "timing.pipeline_total_s",
+        "static": 4.382,
+        "adaptive": 7.784,
+        "delta_pct": 77.64,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "SQL queries": {
+        "path": "timing.sql_queries",
+        "static": 9882.667,
+        "adaptive": 10169.333,
+        "delta_pct": 2.9,
+        "lower_is_better": true,
+        "verdict": "regression"
+      },
+      "learning total s": {
+        "path": "timing.learning_total_s",
+        "static": 0,
+        "adaptive": 0,
+        "delta_pct": 0.0,
+        "lower_is_better": true,
+        "verdict": "neutral"
+      }
+    }
+  }
+}

@@ -1,5 +1,5 @@
-from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, HTTPException, status
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException
 from app.api.deps import SessionDep, CurrentUser
 from app.schemas.playback import (
     ScenarioCreate, ScenarioResponse, SaveSimulationRequest,

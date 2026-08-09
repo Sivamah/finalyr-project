@@ -2,6 +2,7 @@ import React from 'react';
 import { Sliders, MapPin, Navigation, Clock, ShieldCheck, Zap, Gauge } from 'lucide-react';
 
 function SingleFactorBar({ label, value, icon: Icon, colorClass, description }) {
+  const hasValue = value !== undefined && value !== null;
   const roundedVal = Math.round(value || 0);
 
   return (
@@ -11,11 +12,11 @@ function SingleFactorBar({ label, value, icon: Icon, colorClass, description }) 
           <Icon className="h-3.5 w-3.5 text-gray-400" />
           {label}
         </span>
-        <span className="font-mono font-bold text-white">{roundedVal}%</span>
+        <span className="font-mono font-bold text-white">{hasValue ? `${roundedVal}%` : 'N/A'}</span>
       </div>
       <div className="w-full bg-gray-900 rounded-full h-2 overflow-hidden border border-gray-700/50">
         <div
-          className={`h-2 rounded-full transition-all duration-500 ${colorClass || 'bg-indigo-500'}`}
+          className={`h-2 rounded-full transition-all duration-500 ${colorClass || 'bg-indigo-500'} ${hasValue ? '' : 'opacity-20'}`}
           style={{ width: `${Math.min(100, Math.max(0, roundedVal))}%` }}
         />
       </div>
@@ -28,42 +29,42 @@ export default function ScoreBreakdown({ factors = {} }) {
   const items = [
     {
       label: 'Pickup Distance Score',
-      value: factors.pickup_distance_score ?? 85,
+      value: factors.pickup_distance_score,
       icon: MapPin,
       colorClass: 'bg-blue-500',
       description: 'Proximity of pickup location to active provider fleet',
     },
     {
       label: 'Destination Similarity',
-      value: factors.destination_similarity ?? 88,
+      value: factors.destination_similarity,
       icon: Navigation,
       colorClass: 'bg-indigo-500',
       description: 'Route overlap & spatial convergence with shared direction',
     },
     {
       label: 'Estimated Delay Score',
-      value: factors.estimated_delay_score ?? 90,
+      value: factors.estimated_delay_score,
       icon: Clock,
       colorClass: 'bg-yellow-500',
       description: 'Low expected detour latency impact on ETA SLA',
     },
     {
       label: 'Vehicle Capacity Score',
-      value: factors.vehicle_capacity_score ?? 95,
+      value: factors.vehicle_capacity_score,
       icon: ShieldCheck,
       colorClass: 'bg-emerald-500',
       description: 'Passenger/volume headroom compliance',
     },
     {
       label: 'Priority Score',
-      value: factors.priority_score ?? 80,
+      value: factors.priority_score,
       icon: Zap,
       colorClass: 'bg-purple-500',
       description: 'Demand priority & urgency weighting factor',
     },
     {
       label: 'Overall Compatibility Score',
-      value: factors.overall_compatibility_score ?? 89.5,
+      value: factors.overall_compatibility_score,
       icon: Gauge,
       colorClass: 'bg-cyan-400',
       description: 'Composite feasibility evaluation score',

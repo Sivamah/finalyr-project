@@ -1,56 +1,62 @@
 import React from 'react';
-import { Activity, Layers, XCircle, BarChart2 } from 'lucide-react';
+import { Activity, Layers, XCircle, Gauge } from 'lucide-react';
+import { motion } from 'framer-motion';
 
-function StatCard({ label, value, icon: Icon, colorClass, borderClass }) {
+const CARD_THEMES = {
+  pending: { icon: Activity, accent: '#3B82F6', glow: 'rgba(59,130,246,0.35)' },
+  batches: { icon: Layers, accent: '#10B981', glow: 'rgba(16,185,129,0.3)' },
+  rejected: { icon: XCircle, accent: '#EF4444', glow: 'rgba(239,68,68,0.3)' },
+  score: { icon: Gauge, accent: '#F59E0B', glow: 'rgba(245,158,11,0.3)' },
+};
+
+function StatCard({ label, value, icon: Icon, accent, glow, delay }) {
   return (
-    <div className={`bg-gray-800 border ${borderClass} rounded-xl p-4 flex items-center justify-between shadow-sm`}>
-      <div>
-        <p className="text-xs text-gray-400 font-medium">{label}</p>
-        <p className={`text-xl font-bold font-mono mt-0.5 ${colorClass}`}>{value}</p>
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay }}
+      className="glass-card rounded-[22px] p-5 relative overflow-hidden"
+    >
+      <div
+        className="absolute -right-10 -top-10 h-32 w-32 rounded-full blur-[40px] opacity-15 pointer-events-none"
+        style={{ background: accent }}
+      />
+      <div className="relative flex items-center justify-between">
+        <div>
+          <p className="section-label">{label}</p>
+          <p className="text-[26px] font-display font-semibold text-white mt-2 tabular-nums tracking-tight">
+            {value}
+          </p>
+        </div>
+        <div
+          className="h-11 w-11 rounded-2xl border border-white/20 flex items-center justify-center"
+          style={{ background: `${accent}26`, boxShadow: `0 0 20px ${glow}` }}
+        >
+          <Icon className="h-5 w-5" style={{ color: accent }} />
+        </div>
       </div>
-      <div className={`p-2.5 rounded-lg bg-gray-900/60 ${colorClass}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-    </div>
+    </motion.div>
   );
 }
 
 export default function DMFEStatisticsBar({ stats = {}, lastResult = null }) {
-  const totalPending   = lastResult?.total_pending ?? stats.total_pending ?? 0;
+  const totalPending = lastResult?.total_pending ?? stats.total_pending ?? 0;
   const batchesCreated = lastResult?.batches_created ?? stats.total_batches_created ?? 0;
-  const rejected       = lastResult?.rejected_count ?? stats.total_rejected ?? 0;
-  const avgScore       = (lastResult?.avg_compatibility_score ?? stats.avg_compatibility_score ?? 0).toFixed(1);
+  const rejected = lastResult?.rejected_count ?? stats.total_rejected ?? 0;
+  const avgScore = (lastResult?.avg_compatibility_score ?? stats.avg_compatibility_score ?? 0).toFixed(1);
+
+  const cards = [
+    { label: 'Pending Requests', value: totalPending, key: 'pending' },
+    { label: 'Batches Created', value: batchesCreated, key: 'batches' },
+    { label: 'Rejected Pairs', value: rejected, key: 'rejected' },
+    { label: 'Avg Compatibility', value: `${avgScore}%`, key: 'score' },
+  ];
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      <StatCard
-        label="Pending Requests"
-        value={totalPending}
-        icon={Activity}
-        colorClass="text-indigo-400"
-        borderClass="border-indigo-500/20"
-      />
-      <StatCard
-        label="Batches Created"
-        value={batchesCreated}
-        icon={Layers}
-        colorClass="text-green-400"
-        borderClass="border-green-500/20"
-      />
-      <StatCard
-        label="Rejected Pairs"
-        value={rejected}
-        icon={XCircle}
-        colorClass="text-red-400"
-        borderClass="border-red-500/20"
-      />
-      <StatCard
-        label="Avg Compatibility"
-        value={`${avgScore}%`}
-        icon={BarChart2}
-        colorClass="text-amber-400"
-        borderClass="border-amber-500/20"
-      />
+      {cards.map((c, i) => (
+        <StatCard key={c.key} {...c} {...CARD_THEMES[c.key]} delay={i * 0.07} />
+      ))}
     </div>
   );
 }

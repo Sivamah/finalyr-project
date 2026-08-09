@@ -1,11 +1,11 @@
 import json
-import random
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.core.json_utils import json_loads
 from app.db.models import SimulationScenario, SavedSimulation, SimulationRequest, Provider
 from app.services.notification_service import log_system_notification
 
@@ -145,28 +145,68 @@ class PlaybackService:
         for p in providers:
             p_stats[p.name] = sum(1 for r in requests if r.provider_id == p.id)
 
-        # Build synthetic/sampled replay timeline (20 frames)
+        # ── Real replay timeline built from actual request timestamps ────────
+        # Sort requests chronologically; each frame marks the next milestone
+        # (request created / completed) so the replay mirrors real events
+        # instead of synthetic 20-frame interpolation.
+        sorted_reqs = sorted(
+            requests,
+            key=lambda r: r.request_timestamp or r.created_at
+            if (r.request_timestamp or r.created_at) else datetime.min,
+        )
         timeline_frames = []
-        now_ts = datetime.now(timezone.utc)
-
-        for frame_idx in range(1, 21):
-            frame_progress = frame_idx / 20.0
-            frame_completed = int(completed_reqs * frame_progress)
-            frame_pending = max(0, total_reqs - frame_completed)
+        frame_completed = 0
+        prev_key = None
+        frame_idx = 1
+        for r in sorted_reqs:
+            ts = r.request_timestamp or r.created_at
+            if ts is None:
+                continue
+            key = ts.strftime("%H:%M:%S")
+            if key == prev_key:
+                continue  # merge same-second events into one frame
+            prev_key = key
+            is_done = r.status == "Completed"
+            if is_done:
+                frame_completed += 1
             timeline_frames.append({
                 "frame": frame_idx,
-                "timestamp": (now_ts).strftime("%I:%M:%S %p"),
-                "active_requests": frame_pending,
+                "timestamp": key,
+                "active_requests": len(sorted_reqs) - frame_completed,
                 "completed_requests": frame_completed,
-                "completion_rate": round((frame_completed / total_reqs * 100), 1) if total_reqs > 0 else 0.0,
+                "completion_rate": round(
+                    (frame_completed / max(total_reqs, 1)) * 100, 1
+                ),
+                "event": (
+                    f"Request #{r.id} completed"
+                    if is_done else f"Request #{r.id} generated"
+                ),
             })
+            frame_idx += 1
+            if frame_idx > 60:
+                break
 
-        avg_wait = round(random.uniform(5.5, 14.0), 1) if total_reqs > 0 else 0.0
+        # ── Real average waiting time (created → completed) ───────────────────
+        wait_times = []
+        for r in requests:
+            c_at = r.created_at
+            r_ts = r.request_timestamp
+            if r.status == "Completed" and c_at and r_ts:
+                try:
+                    wait = max(0.0, abs((c_at - r_ts).total_seconds()))
+                    wait_times.append(wait)
+                except Exception:
+                    continue
+        avg_wait = round(sum(wait_times) / len(wait_times), 1) if wait_times else 0.0
 
         saved = SavedSimulation(
             name=name,
             scenario_name=scenario_name,
-            duration_seconds=float(total_reqs * 12.5),
+            duration_seconds=float(
+                (requests[-1].created_at - requests[0].created_at).total_seconds()
+                if total_reqs > 1 and requests[0].created_at and requests[-1].created_at
+                else total_reqs * 12.5
+            ),
             total_requests=total_reqs,
             completed_requests=completed_reqs,
             completion_rate=comp_rate,
@@ -220,35 +260,11 @@ class PlaybackService:
 
         result = []
         for s in items:
-            c_at = s.created_at or datetime.now(timezone.utc)
-            if c_at.tzinfo is None:
-                c_at = c_at.replace(tzinfo=timezone.utc)
-
-            p_stats = json.loads(s.provider_stats_json) if s.provider_stats_json else {}
-            q_stats = json.loads(s.queue_stats_json) if s.queue_stats_json else {}
-            timeline = json.loads(s.events_timeline_json) if s.events_timeline_json else []
-
-            result.append({
-                "id": s.id,
-                "name": s.name,
-                "scenario_name": s.scenario_name or "Standard Baseline Run",
-                "duration_seconds": s.duration_seconds or 0.0,
-                "total_requests": s.total_requests or 0,
-                "completed_requests": s.completed_requests or 0,
-                "completion_rate": s.completion_rate or 0.0,
-                "avg_waiting_time_sec": s.avg_waiting_time_sec or 0.0,
-                "provider_stats": p_stats,
-                "queue_stats": q_stats,
-                "events_timeline": timeline,
-                "created_at": c_at.strftime("%Y-%m-%d %I:%M %p"),
-            })
+            result.append(self._saved_simulation_to_dict(s))
         return result
 
-    def get_saved_simulation_by_id(self, db: Session, sim_id: int) -> Optional[Dict[str, Any]]:
-        s = db.query(SavedSimulation).filter(SavedSimulation.id == sim_id).first()
-        if not s:
-            return None
-
+    @staticmethod
+    def _saved_simulation_to_dict(s) -> Dict[str, Any]:
         c_at = s.created_at or datetime.now(timezone.utc)
         if c_at.tzinfo is None:
             c_at = c_at.replace(tzinfo=timezone.utc)
@@ -262,11 +278,18 @@ class PlaybackService:
             "completed_requests": s.completed_requests or 0,
             "completion_rate": s.completion_rate or 0.0,
             "avg_waiting_time_sec": s.avg_waiting_time_sec or 0.0,
-            "provider_stats": json.loads(s.provider_stats_json) if s.provider_stats_json else {},
-            "queue_stats": json.loads(s.queue_stats_json) if s.queue_stats_json else {},
-            "events_timeline": json.loads(s.events_timeline_json) if s.events_timeline_json else [],
+            "provider_stats": json_loads(s.provider_stats_json, {}),
+            "queue_stats": json_loads(s.queue_stats_json, {}),
+            "events_timeline": json_loads(s.events_timeline_json, []),
             "created_at": c_at.strftime("%Y-%m-%d %I:%M %p"),
         }
+
+    def get_saved_simulation_by_id(self, db: Session, sim_id: int) -> Optional[Dict[str, Any]]:
+        s = db.query(SavedSimulation).filter(SavedSimulation.id == sim_id).first()
+        if not s:
+            return None
+
+        return self._saved_simulation_to_dict(s)
 
     def delete_saved_simulation(self, db: Session, sim_id: int) -> bool:
         s = db.query(SavedSimulation).filter(SavedSimulation.id == sim_id).first()

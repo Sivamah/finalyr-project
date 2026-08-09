@@ -13,47 +13,16 @@ All routes require authentication (Bearer token).
 No OR-Tools, no vehicle assignment, no routing.
 """
 
-import json
-from typing import List, Optional, Any, Dict
+from typing import Optional
 from fastapi import APIRouter, Query
 from sqlalchemy import func
 
 from app.api.deps import SessionDep, CurrentUser
 from app.dmfe.models import DMFEBatch, DMFEAnalysisRun
 from app.dmfe.decision_engine import decision_engine
+from app.dmfe.serializers import batch_to_dict, run_to_dict
 
 router = APIRouter(prefix="/api/dmfe", tags=["DMFE"])
-
-
-# ── Helpers ────────────────────────────────────────────────────────────────
-
-def _batch_to_dict(b: DMFEBatch) -> Dict[str, Any]:
-    return {
-        "id": b.id,
-        "batch_code": b.batch_code,
-        "analysis_run_id": b.analysis_run_id,
-        "request_ids": json.loads(b.request_ids_json or "[]"),
-        "compatibility_score": b.compatibility_score,
-        "decision": b.decision,
-        "reasons": json.loads(b.reason_json or "[]"),
-        "factor_scores": json.loads(b.factor_scores_json or "{}"),
-        "status": b.status,
-        "estimated_delay_min": b.estimated_delay_min,
-        "created_at": b.created_at.strftime("%Y-%m-%d %I:%M %p") if b.created_at else "",
-    }
-
-
-def _run_to_dict(r: DMFEAnalysisRun) -> Dict[str, Any]:
-    return {
-        "id": r.id,
-        "total_pending": r.total_pending,
-        "total_evaluated_pairs": r.total_evaluated_pairs,
-        "batches_created": r.batches_created,
-        "rejected_count": r.rejected_count,
-        "avg_compatibility_score": r.avg_compatibility_score,
-        "threshold_used": r.threshold_used,
-        "run_at": r.run_at.strftime("%Y-%m-%d %I:%M %p") if r.run_at else "",
-    }
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -68,18 +37,7 @@ def run_dmfe_analysis(db: SessionDep, current_user: CurrentUser):
     batch records, and returns the full structured result.
     """
     result = decision_engine.run_analysis(db)
-    return {
-        "run_id": result.run_id,
-        "total_pending": result.total_pending,
-        "total_pairs_evaluated": result.total_pairs_evaluated,
-        "batches_created": result.batches_created,
-        "rejected_count": result.rejected_count,
-        "avg_compatibility_score": result.avg_compatibility_score,
-        "threshold_used": result.threshold_used,
-        "compatible_batches": result.compatible_batches,
-        "rejected_batches": result.rejected_batches,
-        "unmatched_request_ids": result.unmatched_request_ids,
-    }
+    return result.to_dict()
 
 
 @router.get("/batches")
@@ -100,7 +58,7 @@ def list_batches(
     if run_id:
         q = q.filter(DMFEBatch.analysis_run_id == run_id)
     batches = q.order_by(DMFEBatch.created_at.desc()).limit(limit).all()
-    return [_batch_to_dict(b) for b in batches]
+    return [batch_to_dict(b, db) for b in batches]
 
 
 @router.get("/batches/{batch_id}")
@@ -110,7 +68,7 @@ def get_batch(batch_id: int, db: SessionDep, current_user: CurrentUser):
     b = db.query(DMFEBatch).filter(DMFEBatch.id == batch_id).first()
     if not b:
         raise HTTPException(404, "DMFE batch not found")
-    return _batch_to_dict(b)
+    return batch_to_dict(b, db)
 
 
 @router.get("/history")
@@ -126,7 +84,7 @@ def list_analysis_history(
         .limit(limit)
         .all()
     )
-    return [_run_to_dict(r) for r in runs]
+    return [run_to_dict(r) for r in runs]
 
 
 @router.get("/statistics")
@@ -150,7 +108,27 @@ def get_dmfe_statistics(db: SessionDep, current_user: CurrentUser):
         .first()
     )
 
+    from app.db.models import SimulationRequest
+    current_pending = (
+        db.query(func.count(SimulationRequest.id))
+        .filter(SimulationRequest.status == "Pending")
+        .scalar()
+    ) or 0
+    from app.db.models import Trip
+    current_trips = db.query(func.count(Trip.id)).scalar() or 0
+    shared_trips = (
+        db.query(func.count(Trip.id))
+        .filter(Trip.is_shared.is_(True))
+        .scalar()
+    ) or 0
+
+    # True batching rate (Step 3 formula): shared trips / total trips × 100
     batch_rate = round(
+        (shared_trips / current_trips * 100), 1
+    ) if current_trips and current_trips > 0 else 0.0
+
+    # Retained under an honest name: batches created per evaluated pair
+    pairs_batch_density = round(
         (total_batches / total_pairs * 100), 1
     ) if total_pairs and total_pairs > 0 else 0.0
 
@@ -159,7 +137,11 @@ def get_dmfe_statistics(db: SessionDep, current_user: CurrentUser):
         "total_pairs_evaluated": int(total_pairs or 0),
         "total_batches_created": int(total_batches or 0),
         "total_rejected": int(total_rejected or 0),
+        "total_pending": current_pending,
+        "total_trips": current_trips,
+        "total_shared_trips": int(shared_trips),
         "batch_rate_pct": batch_rate,
+        "pairs_batch_density_pct": pairs_batch_density,
         "avg_compatibility_score": round(float(avg_score), 1),
         "latest_threshold": latest_run.threshold_used if latest_run else 70.0,
         "last_run_at": latest_run.run_at.strftime("%Y-%m-%d %I:%M %p") if latest_run else None,

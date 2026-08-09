@@ -38,6 +38,7 @@ class DashboardStats(BaseModel):
     avg_route_savings: float
     fuel_saved: float
     co2_reduction: float
+    batch_rate: float = 0.0
 
 
 class DatasetUpload(BaseModel):

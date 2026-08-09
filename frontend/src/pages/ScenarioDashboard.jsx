@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Film, Save, Play, Scale, Layers, Search, Filter, RotateCcw, Download } from 'lucide-react';
+import { Save, Scale, Layers, Search, Filter, RotateCcw } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+import PageHeader from '../components/ui/PageHeader';
 import ScenarioDashboardOverview from '../components/playback/ScenarioDashboardOverview';
 import SavedSimulationsTable from '../components/playback/SavedSimulationsTable';
 import SimulationReplayPlayer from '../components/playback/SimulationReplayPlayer';
@@ -162,53 +163,39 @@ export default function ScenarioDashboard() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* ── Page Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Film className="h-6 w-6 text-indigo-400" />
-            Simulation Playback & Scenario Testing
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Save historical simulation telemetry runs, replay events, compare scenarios side-by-side, and manage presets
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex items-center gap-2">
-          {selectedForCompare.length === 2 && (
-            <button
-              onClick={handleCompareClick}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded-lg transition-colors shadow-sm animate-bounce"
-            >
-              <Scale className="h-4 w-4" /> Compare Selected (2)
+    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="Reports"
+        title="Playback & Scenario Lab"
+        description="Replay saved runs, compare scenarios side-by-side, and export run reports."
+        actions={
+          <div className="flex items-center gap-2.5">
+            {selectedForCompare.length === 2 && (
+              <button onClick={handleCompareClick} className="btn-primary">
+                <Scale className="h-4 w-4" /> Compare Selected (2)
+              </button>
+            )}
+            <button onClick={handleOpenSaveModal} className="btn-glass">
+              <Save className="h-4 w-4" /> Save Live Run
             </button>
-          )}
-
-          <button
-            onClick={handleOpenSaveModal}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition-colors shadow-sm"
-          >
-            <Save className="h-4 w-4" /> Save Live Simulation Run
-          </button>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       {/* ── 1. Overview Metric Cards ────────────────────────────────────────── */}
       <ScenarioDashboardOverview overview={overview} />
 
       {/* ── 2. Search & Filter Bar ───────────────────────────────────────────── */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
+      <div className="glass-panel rounded-[20px] p-4">
         <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-center justify-between">
           <div className="relative flex-1 min-w-[280px]">
-            <Search className="absolute left-3.5 top-2.5 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-text-muted" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search saved runs by Simulation Name or Scenario..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-900 border border-gray-700 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Search saved runs by name or scenario…"
+              className="input-glass !pl-11"
             />
           </div>
 
@@ -238,44 +225,32 @@ export default function ScenarioDashboard() {
       </div>
 
       {/* ── 3. Navigation Tabs & Content Views ───────────────────────────────── */}
-      <div className="space-y-4">
+      <div className="space-y-5">
         {/* Tabs Bar */}
-        <div className="flex items-center border-b border-gray-700">
+        <div className="glass-panel rounded-[18px] p-1.5 flex items-center gap-1.5 w-fit overflow-x-auto custom-scrollbar">
           <button
             onClick={() => setActiveTab('saved')}
-            className={`flex items-center gap-2 py-3 px-5 font-bold text-sm border-b-2 transition-colors ${
-              activeTab === 'saved'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
+            className={`tab-pill shrink-0 ${activeTab === 'saved' ? 'tab-pill-active' : ''}`}
           >
-            <Film className="h-4 w-4" /> Saved Simulations
-            <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-500/20 text-indigo-400 font-bold">
+            <Layers className="h-4 w-4" /> Saved Simulations
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'saved' ? 'bg-white/15 text-white' : 'bg-white/[0.06] text-brand-text-muted'}`}>
               {simulations.length}
             </span>
           </button>
 
           <button
             onClick={() => setActiveTab('comparison')}
-            className={`flex items-center gap-2 py-3 px-5 font-bold text-sm border-b-2 transition-colors ${
-              activeTab === 'comparison'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
+            className={`tab-pill shrink-0 ${activeTab === 'comparison' ? 'tab-pill-active' : ''}`}
           >
-            <Scale className="h-4 w-4" /> Scenario Comparison Matrix
+            <Scale className="h-4 w-4" /> Comparison Matrix
           </button>
 
           <button
             onClick={() => setActiveTab('scenarios')}
-            className={`flex items-center gap-2 py-3 px-5 font-bold text-sm border-b-2 transition-colors ${
-              activeTab === 'scenarios'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
+            className={`tab-pill shrink-0 ${activeTab === 'scenarios' ? 'tab-pill-active' : ''}`}
           >
-            <Layers className="h-4 w-4" /> Scenario Presets Manager
-            <span className="px-2 py-0.5 rounded-full text-xs bg-green-500/20 text-green-400 font-bold">
+            <Layers className="h-4 w-4" /> Scenario Presets
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === 'scenarios' ? 'bg-white/15 text-white' : 'bg-white/[0.06] text-brand-text-muted'}`}>
               {scenarios.length}
             </span>
           </button>

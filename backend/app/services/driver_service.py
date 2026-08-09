@@ -1,4 +1,3 @@
-import random
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
@@ -6,7 +5,6 @@ from sqlalchemy import func, String
 from sqlalchemy.orm import Session
 
 from app.db.models import Driver, Vehicle, Provider, DriverAssignmentHistory
-from app.services.notification_service import log_system_notification
 
 logger = logging.getLogger(__name__)
 
@@ -20,29 +18,52 @@ SAMPLE_COORDINATES = [
 ]
 
 SEED_DRIVERS_DATA = [
-  {"name": "Karthik Subramanian", "phone": "+91 98421 11201", "email": "karthik.s@rapido.in", "status": "Available", "license": "TN37 2021004120"},
-  {"name": "Manoj Kumar", "phone": "+91 97890 22312", "email": "manoj.k@uber.com", "status": "Busy", "license": "TN38 2020003150"},
-  {"name": "Senthil Nathan", "phone": "+91 94432 33423", "email": "senthil.n@swiggy.in", "status": "Available", "license": "TN37 2022005890"},
-  {"name": "Praveen Raj", "phone": "+91 96291 44534", "email": "praveen.r@dtdc.com", "status": "Offline", "license": "TN66 2019001240"},
-  {"name": "Gokul Prasad", "phone": "+91 98940 55645", "email": "gokul.p@zomato.com", "status": "Available", "license": "TN37 2023008910"},
-  {"name": "Anand Prakash", "phone": "+91 97500 66756", "email": "anand.p@ola.in", "status": "Busy", "license": "TN38 2021009020"},
+    {"name": f"Driver {i}", "phone": f"+91 9{i%10}8421{i:04d}", "email": f"driver{i}@example.com", "status": "Available", "license": f"TN37 2021{i:06d}"}
+    for i in range(1, 21)
 ]
-
 
 class DriverService:
     """Service layer managing Drivers, Vehicles, Location tracking, and Assignment logs."""
 
+    SEED_FLAG_KEY = "driver.seeded"
+
+    def _is_seeded(self, db: Session) -> bool:
+        from app.db.models import SystemConfig
+        row = (
+            db.query(SystemConfig)
+            .filter(SystemConfig.key == self.SEED_FLAG_KEY)
+            .first()
+        )
+        return row is not None and str(row.value).lower() == "true"
+
     def seed_initial_data_if_needed(self, db: Session):
-        """Ensure initial realistic drivers and vehicles exist for demo providers."""
+        """Ensure initial realistic drivers and vehicles exist for demo providers.
+
+        Runs only once (guarded by the SystemConfig 'driver.seeded' flag) and is
+        invoked from the app lifespan, never from read endpoints.  It no longer
+        mutates existing vehicles/drivers, so a GET /drivers cannot fight the
+        DMFE availability gate or cause SQLite write-lock contention.
+        """
         try:
+            if self._is_seeded(db):
+                return
+            from app.db.models import SystemConfig
+
             providers = db.query(Provider).all()
             if not providers:
-                return
+                p = Provider(name="Default Provider", category="Logistics")
+                db.add(p)
+                db.commit()
+                db.refresh(p)
+                providers = [p]
 
             driver_count = db.query(Driver).count()
-            if driver_count == 0:
+            if driver_count < 20:
                 coords = SAMPLE_COORDINATES
+                existing_driver_phones = {d.phone for d in db.query(Driver).all()}
                 for i, d in enumerate(SEED_DRIVERS_DATA):
+                    if d["phone"] in existing_driver_phones:
+                        continue
                     p = providers[i % len(providers)]
                     lat, lng = coords[i % len(coords)]
                     driver = Driver(
@@ -58,17 +79,45 @@ class DriverService:
                     db.add(driver)
                 db.commit()
 
-            # Ensure vehicles have registration numbers & statuses
-            vehicles = db.query(Vehicle).all()
-            for i, v in enumerate(vehicles):
-                if not v.registration_number or v.registration_number == "TN-37-AB-1001":
-                    v.registration_number = f"TN-37-X-{1000 + v.id}"
-                if not v.status:
-                    v.status = "Available" if i % 2 == 0 else "Busy"
-                if not v.current_lat or v.current_lat == 11.0168:
-                    coords = SAMPLE_COORDINATES
-                    v.current_lat, v.current_lng = coords[i % len(coords)]
-            db.commit()
+            vehicle_count = db.query(Vehicle).count()
+            if vehicle_count < 15:
+                coords = SAMPLE_COORDINATES
+                vehicle_types = ["Bike", "EV Bike", "Auto", "Mini Truck"]
+                for i in range(vehicle_count + 1, 16):
+                    p = providers[i % len(providers)]
+                    lat, lng = coords[i % len(coords)]
+                    v_type = vehicle_types[i % len(vehicle_types)]
+                    capacity = 1 if "Bike" in v_type else 2
+                    if v_type == "Mini Truck":
+                        capacity = 4
+
+                    vehicle = Vehicle(
+                        provider_id=p.id,
+                        name=f"Vehicle {i}",
+                        vehicle_type=v_type,
+                        registration_number=f"TN-37-X-{1000 + i}",
+                        capacity=capacity,
+                        status="Available",
+                        current_lat=lat,
+                        current_lng=lng,
+                    )
+                    db.add(vehicle)
+                db.commit()
+
+            # Persist the seed guard so subsequent requests never write again.
+            flag = (
+                db.query(SystemConfig)
+                .filter(SystemConfig.key == self.SEED_FLAG_KEY)
+                .first()
+            )
+            if flag is None:
+                db.add(SystemConfig(
+                    category="system",
+                    key=self.SEED_FLAG_KEY,
+                    value="true",
+                    data_type="bool",
+                ))
+                db.commit()
         except Exception as exc:
             logger.warning("seed_initial_data_if_needed error: %s", exc)
 
@@ -81,7 +130,6 @@ class DriverService:
         availability: Optional[str] = None,
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
-        self.seed_initial_data_if_needed(db)
         query = db.query(Driver)
 
         if provider_id and provider_id != 0:
@@ -127,7 +175,6 @@ class DriverService:
         return result
 
     def get_driver_stats(self, db: Session) -> Dict[str, int]:
-        self.seed_initial_data_if_needed(db)
         total = db.query(Driver).count()
         available = db.query(Driver).filter(func.lower(Driver.status) == "available").count()
         busy = db.query(Driver).filter(func.lower(Driver.status) == "busy").count()
@@ -149,7 +196,6 @@ class DriverService:
         status: Optional[str] = None,
         limit: int = 100,
     ) -> List[Dict[str, Any]]:
-        self.seed_initial_data_if_needed(db)
         query = db.query(Vehicle)
 
         if provider_id and provider_id != 0:
@@ -196,7 +242,6 @@ class DriverService:
         return result
 
     def get_vehicle_stats(self, db: Session) -> Dict[str, int]:
-        self.seed_initial_data_if_needed(db)
         total = db.query(Vehicle).count()
         available = db.query(Vehicle).filter(func.lower(Vehicle.status) == "available").count()
         busy = db.query(Vehicle).filter(func.lower(Vehicle.status) == "busy").count()
@@ -210,7 +255,6 @@ class DriverService:
         }
 
     def get_vehicle_locations(self, db: Session) -> List[Dict[str, Any]]:
-        self.seed_initial_data_if_needed(db)
         vehicles = db.query(Vehicle).all()
         providers = {p.id: p.name for p in db.query(Provider).all()}
         drivers = {d.id: d.name for d in db.query(Driver).all()}
@@ -234,7 +278,6 @@ class DriverService:
         return result
 
     def get_assignment_history(self, db: Session, limit: int = 100) -> List[Dict[str, Any]]:
-        self.seed_initial_data_if_needed(db)
         items = db.query(DriverAssignmentHistory).order_by(DriverAssignmentHistory.assignment_time.desc()).limit(limit).all()
 
         if not items:

@@ -7,7 +7,7 @@ rest of the application so that `Base.metadata.create_all()` in main.py
 creates them automatically.
 """
 
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, Float, Text, DateTime
 from sqlalchemy.sql import func
 from app.db.database import Base
 
@@ -42,11 +42,19 @@ class DMFEBatch(Base):
     # JSON dict with individual factor scores {factor_name: score_0_to_1}
     factor_scores_json  = Column(Text, default="{}")
 
+    # JSON dict with raw factor metric values (distances, time gaps, ...)
+    factor_details_json = Column(Text, default="{}")
+
     # "Pending" | "Dispatched" | "Rejected"
     status              = Column(String, default="Pending")
 
     # Estimated delay introduced by batching (minutes)
     estimated_delay_min = Column(Float, default=0.0)
+
+    # Predicted vehicle utilization (%) from the capacity factor at batch
+    # formation time (realized value is recorded on the Trip row instead).
+    # Additive, nullable — existing rows default to 0.0 / NULL.
+    predicted_utilization_pct = Column(Float, default=0.0)
 
     created_at          = Column(DateTime(timezone=True), server_default=func.now())
 

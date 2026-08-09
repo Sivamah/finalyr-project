@@ -37,10 +37,10 @@ export default function VehicleLocationMap({ locations = [], onRefresh }) {
         <div>
           <h3 className="text-base font-bold text-white flex items-center gap-2">
             <Navigation className="h-5 w-5 text-indigo-400" />
-            Live Vehicle Location Map ({locations.length} Fleet Markers)
+            Vehicle Location Map ({locations.length} Fleet Markers)
           </h3>
           <p className="text-xs text-gray-400">
-            Real-time GPS telemetry for active vehicles across Coimbatore region
+            Simulated / last-known positions — no live GPS feed connected
           </p>
         </div>
 
@@ -111,7 +111,7 @@ export default function VehicleLocationMap({ locations = [], onRefresh }) {
                       <p><strong>Provider:</strong> {loc.provider_name}</p>
                       <p><strong>Driver:</strong> {loc.driver_name}</p>
                       <p className="font-mono text-[10px] text-gray-500 pt-1 border-t">
-                        GPS: {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
+                        Pos (simulated): {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
                       </p>
                     </div>
                   </div>

@@ -1,0 +1,57 @@
+{
+  "title": "Shared vs Individual Trips (single pass)",
+  "x": [
+    50,
+    100,
+    250,
+    500
+  ],
+  "static_shared": [
+    15,
+    41,
+    50,
+    50
+  ],
+  "adaptive_shared": [
+    15,
+    41,
+    50,
+    50
+  ],
+  "static_individual": [
+    20,
+    18,
+    10,
+    10
+  ],
+  "adaptive_individual": [
+    19,
+    16,
+    10,
+    10
+  ],
+  "static_unassigned": [
+    0,
+    0,
+    74,
+    204
+  ],
+  "adaptive_unassigned": [
+    0,
+    0,
+    72,
+    202
+  ],
+  "static_waves_completion": [
+    100.0,
+    100.0,
+    100.0,
+    100.0
+  ],
+  "adaptive_waves_completion": [
+    100.0,
+    100.0,
+    100.0,
+    100.0
+  ]
+}

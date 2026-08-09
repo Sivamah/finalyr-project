@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Zap, Play, Pause, Square, Trash2, RotateCcw, Activity, Clock,
-  CheckCircle2, ListOrdered, Search, Filter, RefreshCw, Bike, Utensils,
-  Package, MapPin, Gauge, Layers, Building2, TrendingUp, AlertCircle
+  Play, Pause, Square, Trash2, RotateCcw, Activity,
+  CheckCircle2, ListOrdered, Search, Bike, Utensils,
+  Package, MapPin, Layers, Building2, TrendingUp
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+import PageHeader from '../components/ui/PageHeader';
 // ─── Type metadata ────────────────────────────────────────────────────────────
 
 const TYPE_META = {
@@ -95,7 +96,7 @@ export default function SimulationMonitoring() {
 
   useEffect(() => {
     fetchAllData();
-    pollRef.current = setInterval(fetchAllData, 2500);
+    pollRef.current = setInterval(() => { if (document.visibilityState === 'visible') fetchAllData(); }, 2500);
     return () => clearInterval(pollRef.current);
   }, [fetchAllData]);
 
@@ -197,77 +198,52 @@ export default function SimulationMonitoring() {
 
   // ───────────────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 pb-12">
-      {/* ── Page Header & Controls ─────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Zap className="h-6 w-6 text-yellow-400" />
-            Simulation Monitoring Dashboard
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">Real-time telemetry, queue management, and transportation analytics</p>
-        </div>
+    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="Operations"
+        live
+        title="Simulation Monitor"
+        description="Engine state, live queue and completed-throughput telemetry across the network."
+        actions={
+          <div className="flex flex-wrap items-center gap-2.5">
+            {status.running && !status.paused ? (
+              <button onClick={handlePause} disabled={loading} className="btn-glass !text-brand-warning">
+                <Pause className="h-4 w-4" /> Pause
+              </button>
+            ) : (
+              <button onClick={handleStartResume} disabled={loading} className="btn-primary">
+                <Play className="h-4 w-4" /> {status.paused ? 'Resume' : 'Start Simulation'}
+              </button>
+            )}
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap items-center gap-2">
-          {status.running && !status.paused ? (
             <button
-              onClick={handlePause}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
+              onClick={handleStop}
+              disabled={loading || (!status.running && !status.paused)}
+              className="btn-glass !text-brand-danger disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Pause className="h-4 w-4" /> Pause
+              <Square className="h-4 w-4" /> Stop
             </button>
-          ) : (
-            <button
-              onClick={handleStartResume}
-              disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
-            >
-              <Play className="h-4 w-4" /> {status.paused ? 'Resume' : 'Start Simulation'}
+
+            <button onClick={handleClearQueue} disabled={loading} className="btn-glass disabled:opacity-40 disabled:cursor-not-allowed">
+              <RotateCcw className="h-4 w-4" /> Clear Queue
             </button>
-          )}
 
-          <button
-            onClick={handleStop}
-            disabled={loading || (!status.running && !status.paused)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition-colors"
-          >
-            <Square className="h-4 w-4" /> Stop
-          </button>
+            <button onClick={handleClearHistory} disabled={loading} className="btn-glass disabled:opacity-40 disabled:cursor-not-allowed">
+              <Trash2 className="h-4 w-4 text-brand-danger" /> Clear History
+            </button>
 
-          <button
-            onClick={handleClearQueue}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-200 font-medium rounded-lg text-sm transition-colors"
-            title="Clear Pending Requests"
-          >
-            <RotateCcw className="h-4 w-4" /> Clear Queue
-          </button>
-
-          <button
-            onClick={handleClearHistory}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-200 font-medium rounded-lg text-sm transition-colors"
-            title="Clear Completed History"
-          >
-            <Trash2 className="h-4 w-4 text-red-400" /> Clear History
-          </button>
-
-          <NavLink
-            to="/live-map"
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg text-sm transition-colors shadow-sm ml-auto"
-          >
-            <MapPin className="h-4 w-4" /> Live Map
-          </NavLink>
-        </div>
-      </div>
+            <NavLink to="/live-map" className="btn-glass !text-brand-secondary">
+              <MapPin className="h-4 w-4" /> Live Map
+            </NavLink>
+          </div>
+        }
+      />
 
       {/* ── 1. Main Simulation Status Bar Card ────────────────────────────── */}
-      <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-lg">
+      <div className="glass-card rounded-[24px] p-5">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {/* Status Indicator */}
-          <div className="bg-gray-900/60 border border-gray-700/60 rounded-lg p-3">
+          <div className="surface-well rounded-xl p-3">
             <p className="text-xs text-gray-400 font-medium mb-1">Status</p>
             <div className="flex items-center gap-2">
               {status.status_text === 'Running' && (

@@ -70,6 +70,8 @@ VTYPE_TO_PROVIDER: Dict[str, str] = {
 }
 
 # Config keys the engine reads (seeded so all runs are reproducible)
+ADMFE_MODE = os.environ.get("ADMFE_MODE", "adaptive")  # "adaptive" | "static"
+
 SYSTEM_CONFIG: Dict[str, str] = {
     "pickup_weight": "0.30",
     "route_weight": "0.25",
@@ -97,6 +99,12 @@ SYSTEM_CONFIG: Dict[str, str] = {
     "driver_eta_limit_min": "30",
     "driver_max_search_km": "25",
     "driver_avg_speed_kmh": "25",
+    # A-DMFE (adaptive framework) — mode toggles the full adaptive stack
+    "admfe.mode": ADMFE_MODE,
+    "admfe.base_bqs_threshold": "0.55",
+    "admfe.learning_enabled": "true",
+    "admfe.learning_max_bias": "0.15",
+    "traffic_multiplier": "1.0",
 }
 
 
@@ -119,9 +127,49 @@ from app.dmfe import batch_generator as _bg_mod  # noqa: E402
 from app.dmfe import driver_selection as _ds_mod  # noqa: E402
 from app.dmfe import optimizer as _opt_mod  # noqa: E402
 from app.dmfe import pipeline as _pl_mod  # noqa: E402
+from app.dmfe.adaptive.learning import LearningEngine  # noqa: E402
 from app.engine.distance import haversine  # noqa: E402
+from app.core.json_utils import json_loads  # noqa: E402
 from app.services.mock_adapters import generate_simulation_requests, COIMBATORE_AREAS  # noqa: E402
 from app.api.routes.providers import SEED_PROVIDERS  # noqa: E402
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SQL query counter — counts every cursor execution on the eval engine
+# ─────────────────────────────────────────────────────────────────────────────
+
+class QueryCounter:
+    """Counts SQL statements executed on the engine via sqlalchemy events."""
+
+    def __init__(self) -> None:
+        self.count = 0
+        self._installed = False
+
+    def _on_cursor(self, conn, cursor, statement, parameters, context, executemany):
+        self.count += 1
+
+    def install(self) -> None:
+        from sqlalchemy import event as sa_event
+        sa_event.listen(engine, "before_cursor_execute", self._on_cursor)
+        self._installed = True
+
+    def uninstall(self) -> None:
+        from sqlalchemy import event as sa_event
+        if self._installed:
+            sa_event.remove(engine, "before_cursor_execute", self._on_cursor)
+            self._installed = False
+
+    def __enter__(self) -> "QueryCounter":
+        self.install()
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.uninstall()
+
+
+def stage_share(part_s: float, total_s: float) -> float:
+    """Percentage of `part_s` inside `total_s` (0.0 if total <= 0)."""
+    return round(part_s / total_s * 100.0, 1) if total_s > 0 else 0.0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -182,7 +230,10 @@ class ExperimentDB:
         Base.metadata.create_all(bind=engine)
 
     def seed_system_config(self, db: Session) -> None:
-        for key, value in SYSTEM_CONFIG.items():
+        self.seed_system_config_with(db, SYSTEM_CONFIG)
+
+    def seed_system_config_with(self, db: Session, config: Dict[str, str]) -> None:
+        for key, value in config.items():
             db.add(SystemConfig(category="ai_rules", key=key,
                                 value=value, data_type="float"))
         db.commit()
@@ -266,14 +317,108 @@ class WorkloadRunner:
         self.dispatch_probe = Probe()
         self.optimize_probe = Probe()
         self.select_probe = Probe()
+        self.decision_probe = Probe()
+        self.persist_probe = Probe()
+        self.learn_probe = Probe()
         self.wave_trip_ids: List[int] = []
+        self.wave_sql_queries: int = 0
+        # deterministic execution model RNG (independent of dispatch RNG)
+        self._exec_rng = random.Random(seed + 9000)
+
+    @staticmethod
+    def exec_scatter(execution: str = "scatter") -> Dict[str, Any]:
+        """
+        Execution model parameters for simulated trip outcomes.
+
+        ``scatter``    — default: actuals wobble around the predictions.
+        ``delay_x1.4`` — controlled feed-forward scenario (Step 5):
+                         actual delay is EXACTLY 1.4× the predicted delay,
+                         other signals scatter-free.
+        """
+        if execution == "delay_x1.4":
+            return {
+                "delay_scatter": (1.0, 1.0),
+                "delay_bias": 1.4,
+                "utilization_scatter": (1.0, 1.0),
+                "fuel_scatter": (1.0, 1.0),
+            }
+        return {
+            "delay_scatter": (0.85, 1.45),
+            "delay_bias": 1.0,
+            "utilization_scatter": (0.9, 1.1),
+            "fuel_scatter": (0.9, 1.35),
+        }
+
+    def simulate_execution(self, db: Session, trip: Any) -> Any:
+        """
+        Simulated EXECUTION of a dispatched trip: writes actual outcomes
+        into the Trip outcome columns from the dispatch-time predictions
+        (still present on the trip row) using the deterministic model.
+
+        This is the simulator's honest role — predictions come from the
+        real dispatch path; actuals are the execution model's response.
+        Uses an instance RNG so runs are reproducible and the dispatch
+        path's own randomness is untouched.
+        """
+        scatter = self.exec_scatter(getattr(self, "execution", "scatter"))
+        p_delay = float(trip.max_delay_min or 0.0)
+        p_util = float(trip.utilization_pct or 0.0)
+        p_fuel = float(trip.fuel_l or 0.0)
+        lo, hi = scatter["delay_scatter"]
+        trip.max_delay_min = round(
+            max(0.0, p_delay * scatter["delay_bias"] * self._exec_rng.uniform(lo, hi)), 2
+        )
+        lo, hi = scatter["utilization_scatter"]
+        trip.utilization_pct = round(
+            min(100.0, max(5.0, p_util * self._exec_rng.uniform(lo, hi))), 1
+        )
+        lo, hi = scatter["fuel_scatter"]
+        trip.fuel_l = round(max(0.0, p_fuel * self._exec_rng.uniform(lo, hi)), 3)
+        return trip
+
+    def complete_trips_real(self, db: Session) -> int:
+        """
+        REAL trip completion: simulated execution outcomes, then the app's
+        own lifecycle (complete_trip → learning hook).  Never bypasses the
+        trip lifecycle the way complete_all_active did.
+        """
+        from app.dmfe.driver_selection import complete_trip
+
+        trips = db.query(Trip).filter(Trip.status.in_(["Planned", "Active"])).all()
+        for t in trips:
+            self.simulate_execution(db, t)
+            complete_trip(db, t.id, commit=False)
+        db.commit()
+        return len(trips)
 
     def install_probes(self) -> None:
         self.batch_probe.wrap(_bg_mod.BatchGenerator, "create_feasible_batches")
         self.optimize_probe.wrap(_opt_mod.RouteOptimizer, "optimize_trip")
         self.select_probe.wrap(_ds_mod.DriverSelector, "select")
+        # pipeline decision gate (high-priority delay re-check)
+        self.decision_probe.wrap_module(_pl_mod, "_high_priority_violation")
+        from sqlalchemy.orm import Session as _Session
+        self.persist_probe.wrap(_Session, "commit")
+        from app.dmfe.adaptive.learning import learning_engine
+        self.learn_probe.wrap(type(learning_engine), "record_trip_outcome")
         # the pipeline holds a direct import reference -> patch it there too
         self.dispatch_probe.wrap_module(_pl_mod, "dispatch_trip")
+
+    def timing_snapshot(self) -> Dict[str, Any]:
+        """Stage timing totals for the current probe window."""
+        return {
+            "pipeline_total_s": 0.0,  # set by the caller from the wall clock
+            "batch_formation_total_s": round(self.batch_probe.total_s, 3),
+            "batch_formation_calls": len(self.batch_probe.times),
+            "decision_total_s": round(self.decision_probe.total_s, 3),
+            "decision_calls": len(self.decision_probe.times),
+            "persistence_total_s": round(self.persist_probe.total_s, 3),
+            "persistence_calls": len(self.persist_probe.times),
+            "learning_total_s": round(self.learn_probe.total_s, 3),
+            "learning_calls": len(self.learn_probe.times),
+            "dispatch_total_s": round(self.dispatch_probe.total_s, 3),
+            "dispatch_calls": len(self.dispatch_probe.times),
+        }
 
     def generate_requests(self, db: Session) -> List[SimulationRequest]:
         random.seed(self.seed)
@@ -284,29 +429,29 @@ class WorkloadRunner:
 
     def run_pipeline(self, db: Session) -> Dict[str, Any]:
         runner = PipelineRunner()
-        t0 = time.perf_counter()
-        result = runner.run(db, limit=self.workload)
-        wall_s = time.perf_counter() - t0
+        with QueryCounter() as qc:
+            t0 = time.perf_counter()
+            result = runner.run(db, limit=self.workload)
+            wall_s = time.perf_counter() - t0
         return {
             "result": result,
             "wall_s": wall_s,
             "trip_ids": [d["trip_id"] for d in result.dispatches],
+            "sql_queries": qc.count,
         }
 
-    def complete_all_active(self, db: Session) -> None:
-        trips = db.query(Trip).filter(Trip.status.in_(["Planned", "Active"])).all()
-        for t in trips:
-            t.status = "Completed"
-        db.query(Driver).update({"status": "Available"})
-        db.query(Vehicle).update({"status": "Available"})
-        db.query(DriverAssignmentHistory).filter(
-            DriverAssignmentHistory.status == "Active"
-        ).update({"status": "Completed"})
-        db.commit()
-
     def run_waves(self, db: Session) -> Dict[str, Any]:
-        self.complete_all_active(db)  # reset fleet state left by the single pass
+        """
+        Full-day simulation with the REAL trip lifecycle (Phase 4.1).
+
+        Trips from the previous pass are completed through simulated
+        execution + the app's own complete_trip — never by direct status
+        flips.  Static mode therefore stays isolated (learning disabled),
+        adaptive mode genuinely accumulates outcomes.
+        """
+        self.complete_trips_real(db)  # close the single-pass trips for real
         waves = 0
+        sql_total = 0
         for _ in range(MAX_WAVES):
             pending = (
                 db.query(SimulationRequest)
@@ -318,10 +463,40 @@ class WorkloadRunner:
             out = self.run_pipeline(db)
             self.wave_trip_ids.extend(out["trip_ids"])
             waves += 1
+            sql_total += out.get("sql_queries", 0)
             if not out["trip_ids"]:
                 break
-            self.complete_all_active(db)
+            self.complete_trips_real(db)
+        self.wave_sql_queries = sql_total
         return {"waves": waves}
+
+    def _wave_metrics(
+        self,
+        db: Session,
+        requests: List[SimulationRequest],
+        trip_ids: List[int],
+        waves: int,
+    ) -> Dict[str, Any]:
+        """Aggregate the full multi-wave run (shared with run_workload)."""
+        wave_trips = (
+            db.query(Trip).filter(Trip.id.in_(trip_ids)).all()
+            if trip_ids else []
+        )
+        wave_dist = sum(t.total_distance_km or 0 for t in wave_trips)
+        wave_fuel = sum(t.fuel_l or 0 for t in wave_trips)
+        wave_completed = sum(
+            1 for r in requests if r.status in ("Assigned", "Completed")
+        )
+        return {
+            "waves": waves,
+            "trips_total": len(trip_ids),
+            "total_distance_km": round(wave_dist, 2),
+            "total_fuel_l": round(wave_fuel, 2),
+            "total_co2_kg": round(wave_fuel * CO2_FACTOR, 2),
+            "requests_completed": wave_completed,
+            "requests_failed": len(requests) - wave_completed,
+            "completion_rate_pct": round(wave_completed / len(requests) * 100.0, 1),
+        }
 
     def collect_metrics(
         self, db: Session, trip_ids: List[int],
@@ -346,11 +521,16 @@ class WorkloadRunner:
         if status_map is None:
             status_map = {r.id: r.status for r in self.requests}
         completed = sum(1 for s in status_map.values() if s == "Assigned")
+        batching_rate = round(
+            (len(shared) / len(trips) * 100.0), 1
+        ) if trips else 0.0
+        avg_delay_min = avg([t.max_delay_min or 0 for t in trips])
 
         return {
             "trips": len(trips),
             "shared_trips": len(shared),
             "individual_trips": len(individual),
+            "batching_rate_pct": batching_rate,
             "total_distance_km": round(total_dist, 2),
             "avg_distance_km": avg([t.total_distance_km or 0 for t in trips]),
             "avg_shared_distance_km": avg([t.total_distance_km or 0 for t in shared]),
@@ -368,6 +548,7 @@ class WorkloadRunner:
             ) if co2_saved > 0 else 0.0,
             "avg_utilization_pct": avg([t.utilization_pct or 0 for t in trips]),
             "avg_waiting_min": avg([t.max_delay_min or 0 for t in trips]),
+            "avg_delay_min": avg_delay_min,
             "avg_shared_waiting_min": avg([t.max_delay_min or 0 for t in shared]),
             "avg_optimization_score": avg([t.optimization_score or 0 for t in trips]),
             "distance_saved_km": round(sum(t.distance_saved_km or 0 for t in trips), 2),
@@ -404,6 +585,9 @@ class WorkloadRunner:
             .all()
         )
         scores = [b.compatibility_score for b in compatible]
+        sizes = [
+            len(json_loads(b.request_ids_json, []) or []) for b in compatible
+        ]
         if scores:
             mean = sum(scores) / len(scores)
             var = sum((s - mean) ** 2 for s in scores) / len(scores)
@@ -415,6 +599,9 @@ class WorkloadRunner:
             "std_compatibility_score": round(var ** 0.5, 2),
             "min_compatibility_score": round(min(scores), 2) if scores else 0.0,
             "max_compatibility_score": round(max(scores), 2) if scores else 0.0,
+            "avg_requests_per_batch": round(
+                sum(sizes) / len(sizes), 2) if sizes else 0.0,
+            "max_requests_per_batch": max(sizes) if sizes else 0,
         }
 
     def pair_score_distribution(
@@ -518,16 +705,29 @@ class WorkloadRunner:
 # Top-level experiment orchestration
 # ─────────────────────────────────────────────────────────────────────────────
 
-def run_workload(workload: int) -> Dict[str, Any]:
+def run_workload(
+    workload: int, mode: Optional[str] = None, seed: Optional[int] = None
+) -> Dict[str, Any]:
+    """
+    Run one complete evaluation workload.
+
+    `mode` overrides the A-DMFE operating mode ("adaptive" | "static")
+    per call; when omitted the module-level ADMFE_MODE env value is used.
+    `seed` picks a deterministic repeat; defaults to 1000 + workload.
+    """
     exp = ExperimentDB()
     db = SessionLocal()
     try:
         exp.reset_schema()
-        rng = random.Random(1000 + workload)
-        exp.seed_system_config(db)
+        effective_seed = seed if seed is not None else 1000 + workload
+        rng = random.Random(effective_seed)
+        effective_config = dict(SYSTEM_CONFIG)
+        if mode is not None:
+            effective_config["admfe.mode"] = mode
+        exp.seed_system_config_with(db, effective_config)
         exp.seed_fleet(db, rng)
 
-        runner = WorkloadRunner(workload, seed=1000 + workload)
+        runner = WorkloadRunner(workload, seed=effective_seed)
         runner.install_probes()
         requests = runner.generate_requests(db)
         dist = {"ride": 0, "food": 0, "parcel": 0}
@@ -537,10 +737,12 @@ def run_workload(workload: int) -> Dict[str, Any]:
         # single-pass dispatch (the pipeline's designed behaviour)
         out = runner.run_pipeline(db)
         status_map = {r.id: r.status for r in requests}
+        pipeline_s = out["wall_s"]
         timing_single = {
-            "pipeline_total_s": round(out["wall_s"], 3),
+            "pipeline_total_s": round(pipeline_s, 3),
             "avg_processing_ms_per_request": round(
                 out["wall_s"] * 1000.0 / max(workload, 1), 2),
+            "sql_queries": out.get("sql_queries", 0),
             "batch_formation_total_s": round(runner.batch_probe.total_s, 3),
             "batch_formation_avg_ms": round(runner.batch_probe.avg_ms(), 2),
             "batch_formation_calls": len(runner.batch_probe.times),
@@ -550,8 +752,23 @@ def run_workload(workload: int) -> Dict[str, Any]:
             "driver_selection_total_s": round(runner.select_probe.total_s, 3),
             "driver_selection_avg_ms": round(runner.select_probe.avg_ms(), 2),
             "driver_selection_calls": len(runner.select_probe.times),
+            "decision_total_s": round(runner.decision_probe.total_s, 3),
+            "decision_calls": len(runner.decision_probe.times),
+            "persistence_total_s": round(runner.persist_probe.total_s, 3),
+            "persistence_calls": len(runner.persist_probe.times),
+            "learning_total_s": round(runner.learn_probe.total_s, 3),
+            "learning_calls": len(runner.learn_probe.times),
             "dispatch_total_s": round(runner.dispatch_probe.total_s, 3),
             "dispatch_calls": len(runner.dispatch_probe.times),
+            "stage_share_pct": {
+                "batch_formation": stage_share(runner.batch_probe.total_s, pipeline_s),
+                "route_optimization": stage_share(runner.optimize_probe.total_s, pipeline_s),
+                "driver_selection": stage_share(runner.select_probe.total_s, pipeline_s),
+                "decision": stage_share(runner.decision_probe.total_s, pipeline_s),
+                "persistence": stage_share(runner.persist_probe.total_s, pipeline_s),
+                "learning": stage_share(runner.learn_probe.total_s, pipeline_s),
+                "dispatch": stage_share(runner.dispatch_probe.total_s, pipeline_s),
+            },
         }
 
         metrics = runner.collect_metrics(db, out["trip_ids"], status_map)
@@ -569,7 +786,9 @@ def run_workload(workload: int) -> Dict[str, Any]:
         )
         wave_dist = sum(t.total_distance_km or 0 for t in wave_trips)
         wave_fuel = sum(t.fuel_l or 0 for t in wave_trips)
-        wave_completed = sum(1 for r in requests if r.status == "Assigned")
+        wave_completed = sum(
+            1 for r in requests if r.status in ("Assigned", "Completed")
+        )
         waves_metrics = {
             "waves": wave_out["waves"],
             "trips_total": len(runner.wave_trip_ids),
@@ -579,6 +798,7 @@ def run_workload(workload: int) -> Dict[str, Any]:
             "requests_completed": wave_completed,
             "requests_failed": len(requests) - wave_completed,
             "completion_rate_pct": round(wave_completed / len(requests) * 100.0, 1),
+            "sql_queries_total": runner.wave_sql_queries,
         }
 
         return {
@@ -586,7 +806,7 @@ def run_workload(workload: int) -> Dict[str, Any]:
             "seed": runner.seed,
             "request_mix": dist,
             "fleet_size": FLEET_SIZE,
-            "config": dict(SYSTEM_CONFIG),
+            "config": dict(effective_config),
             "single_pass": {
                 "requests_processed": out["result"].requests_processed,
                 "shared_trips": out["result"].shared_trips,
@@ -603,6 +823,231 @@ def run_workload(workload: int) -> Dict[str, Any]:
             "baseline": baseline,
             "waves": waves_metrics,
             "timing": timing_single,
+        }
+    finally:
+        db.close()
+
+
+def run_learning_workload(
+    workload: int,
+    learning: bool = True,
+    mode: str = "adaptive",
+    max_days: int = 5,
+    execution: str = "scatter",
+) -> Dict[str, Any]:
+    """
+    Closed-loop workload for the learning A/B (Phase 4/4.1).
+
+    Simulates consecutive operating days with the REAL trip lifecycle:
+    dispatch → trip creation → simulated execution (actuals written into
+    the trip) → complete_trip (learning hook).  No status flips.  Stale
+    Pending requests roll off as Failed at end of day.  Both arms run the
+    same fixed number of days with the same per-day seeds, so any
+    difference is attributable to the learning loop.
+
+    ``execution`` selects the execution model: "scatter" (default) or
+    "delay_x1.4" (Step 5 feed-forward scenario).
+    """
+    from app.dmfe.adaptive.learning import LearningEngine, REFIT_INTERVAL
+
+    exp = ExperimentDB()
+    db = SessionLocal()
+    try:
+        exp.reset_schema()
+        rng = random.Random(1000 + workload)
+        effective_config = dict(SYSTEM_CONFIG)
+        effective_config["admfe.mode"] = mode
+        effective_config["admfe.learning_enabled"] = (
+            "true" if learning else "false"
+        )
+        exp.seed_system_config_with(db, effective_config)
+        exp.seed_fleet(db, rng)
+
+        runner = WorkloadRunner(workload, seed=1000 + workload)
+        runner.execution = execution
+        runner.install_probes()
+
+        dist = {"ride": 0, "food": 0, "parcel": 0}
+        all_requests: List[SimulationRequest] = []
+        all_trip_ids: List[int] = []
+        per_day: List[Dict[str, Any]] = []
+        timing_single: Dict[str, Any] = {}
+        day1_metrics: Dict[str, Any] = {}
+
+        for day in range(1, max_days + 1):
+            runner.seed = 1000 + workload + day  # per-day variation (deterministic)
+            requests = runner.generate_requests(db)
+            for r in requests:
+                dist[r.request_type] = dist.get(r.request_type, 0) + 1
+            all_requests.extend(requests)
+
+            out = runner.run_pipeline(db)
+            day_trip_ids = list(out["trip_ids"])
+            if day == 1:
+                status_map = {r.id: r.status for r in requests}
+                pipeline_s = out["wall_s"]
+                timing_single = {
+                    "pipeline_total_s": round(pipeline_s, 3),
+                    "avg_processing_ms_per_request": round(
+                        out["wall_s"] * 1000.0 / max(workload, 1), 2),
+                    "sql_queries": out.get("sql_queries", 0),
+                    "batch_formation_total_s": round(
+                        runner.batch_probe.total_s, 3),
+                    "batch_formation_avg_ms": round(runner.batch_probe.avg_ms(), 2),
+                    "batch_formation_calls": len(runner.batch_probe.times),
+                    "route_optimization_total_s": round(
+                        runner.optimize_probe.total_s, 3),
+                    "route_optimization_avg_ms": round(runner.optimize_probe.avg_ms(), 2),
+                    "route_optimization_calls": len(runner.optimize_probe.times),
+                    "driver_selection_total_s": round(runner.select_probe.total_s, 3),
+                    "driver_selection_avg_ms": round(runner.select_probe.avg_ms(), 2),
+                    "driver_selection_calls": len(runner.select_probe.times),
+                    "decision_total_s": round(runner.decision_probe.total_s, 3),
+                    "decision_calls": len(runner.decision_probe.times),
+                    "persistence_total_s": round(runner.persist_probe.total_s, 3),
+                    "persistence_calls": len(runner.persist_probe.times),
+                    "learning_total_s": round(runner.learn_probe.total_s, 3),
+                    "learning_calls": len(runner.learn_probe.times),
+                    "dispatch_total_s": round(runner.dispatch_probe.total_s, 3),
+                    "dispatch_calls": len(runner.dispatch_probe.times),
+                    "stage_share_pct": {
+                        "batch_formation": stage_share(runner.batch_probe.total_s, pipeline_s),
+                        "route_optimization": stage_share(runner.optimize_probe.total_s, pipeline_s),
+                        "driver_selection": stage_share(runner.select_probe.total_s, pipeline_s),
+                        "decision": stage_share(runner.decision_probe.total_s, pipeline_s),
+                        "persistence": stage_share(runner.persist_probe.total_s, pipeline_s),
+                        "learning": stage_share(runner.learn_probe.total_s, pipeline_s),
+                        "dispatch": stage_share(runner.dispatch_probe.total_s, pipeline_s),
+                    },
+                }
+                day1_metrics = {
+                    "trips": runner.collect_metrics(db, out["trip_ids"], status_map),
+                    "drivers": runner.driver_metrics(db, out["trip_ids"]),
+                    "batches": runner.batch_metrics(db),
+                    "requests_processed": out["result"].requests_processed,
+                    "shared_trips": out["result"].shared_trips,
+                    "individual_trips": out["result"].individual_trips,
+                    "assignments_created": out["result"].assignments_created,
+                    "unassigned_count": len(out["result"].unassigned),
+                }
+
+            # close the loop: simulated execution + REAL completion (learning
+            # hook fires), then re-dispatch until the queue drains
+            waves = 0
+            for _ in range(MAX_WAVES):
+                runner.complete_trips_real(db)
+                pending = (
+                    db.query(SimulationRequest)
+                    .filter(SimulationRequest.status == "Pending")
+                    .count()
+                )
+                if pending == 0:
+                    break
+                wave_out = runner.run_pipeline(db)
+                day_trip_ids.extend(wave_out["trip_ids"])
+                waves += 1
+                if not wave_out["trip_ids"]:
+                    break
+
+            # day-end rolloff: stale Pending requests fail
+            db.query(SimulationRequest).filter(
+                SimulationRequest.status == "Pending"
+            ).update({"status": "Failed"}, synchronize_session=False)
+            db.commit()
+
+            # per-day mean prediction error for the completed trips —
+            # both the route-level prediction the learning engine ingests
+            # and the compat-level estimate the corridor multiplier scales
+            day_trips = (
+                db.query(Trip).filter(Trip.id.in_(day_trip_ids)).all()
+                if day_trip_ids else []
+            )
+            delay_errors = []
+            compat_errors = []
+            for t in day_trips:
+                pred = LearningEngine._estimated_delay(db, t)
+                delay_errors.append(float(t.max_delay_min or 0.0) - pred)
+                batch = LearningEngine._batch_row(db, t)
+                cpred = float(batch.estimated_delay_min or 0.0) if batch else 0.0
+                compat_errors.append(abs(float(t.max_delay_min or 0.0) - cpred))
+            mean_delay_error = (
+                round(sum(delay_errors) / len(delay_errors), 2)
+                if delay_errors else 0.0
+            )
+            mean_compat_error = (
+                round(sum(compat_errors) / len(compat_errors), 2)
+                if compat_errors else 0.0
+            )
+
+            all_trip_ids.extend(day_trip_ids)
+            day_info: Dict[str, Any] = {
+                "day": day,
+                "trips": len(day_trip_ids),
+                "waves": waves,
+                "mean_delay_error_min": mean_delay_error,
+                "mean_compat_delay_error_min": mean_compat_error,
+            }
+            if learning:
+                state = LearningEngine.load_state(db)
+                day_info["outcomes"] = state["outcomes"]["count"]
+                day_info["refit_count"] = state.get("last_refit_count", 0)
+                day_info["corridor_delay_multipliers"] = dict(
+                    LearningEngine.corridor_multipliers(db)
+                )
+                day_info["corridor_utilization_bias"] = dict(
+                    LearningEngine.corridor_utilization_bias(db)
+                )
+            per_day.append(day_info)
+
+        # aggregate metrics over the whole multi-day run
+        trips = (
+            db.query(Trip).filter(Trip.id.in_(all_trip_ids)).all()
+            if all_trip_ids else []
+        )
+        wave_dist = sum(t.total_distance_km or 0 for t in trips)
+        wave_fuel = sum(t.fuel_l or 0 for t in trips)
+        wave_completed = sum(
+            1 for r in all_requests if r.status in ("Assigned", "Completed")
+        )
+        refit_day = next(
+            (d["day"] for d in per_day if learning and d["refit_count"] >= REFIT_INTERVAL),
+            None,
+        )
+        waves_metrics = {
+            "days": len(per_day),
+            "refit_fired_day": refit_day,
+            "trips_total": len(all_trip_ids),
+            "total_distance_km": round(wave_dist, 2),
+            "total_fuel_l": round(wave_fuel, 2),
+            "total_co2_kg": round(wave_fuel * CO2_FACTOR, 2),
+            "requests_completed": wave_completed,
+            "requests_failed": len(all_requests) - wave_completed,
+            "completion_rate_pct": round(
+                wave_completed / len(all_requests) * 100.0, 1
+            ),
+            "sql_queries_total": runner.wave_sql_queries,
+            "learning_total_s": round(runner.learn_probe.total_s, 3),
+            "learning_calls": len(runner.learn_probe.times),
+            "per_day": per_day,
+        }
+
+        learning_m = None
+        if learning:
+            learning_m = {
+                "state_summary": LearningEngine.summary(db),
+                "drivers_tracked": len(LearningEngine.driver_outcome_summary(db)),
+            }
+
+        return {
+            "workload": workload,
+            "seed": runner.seed,
+            "request_mix": dist,
+            "fleet_size": FLEET_SIZE,
+            "config": dict(effective_config),
+            "single_pass": day1_metrics,
+            "waves": waves_metrics,
+            "timing": timing_single,
+            "learning": learning_m,
         }
     finally:
         db.close()

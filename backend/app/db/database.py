@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, declarative_base
 from app.core.config import settings
 
@@ -6,12 +6,32 @@ from app.core.config import settings
 # Falls back to SQLite for development if no DB config is set
 database_url = settings.SQLALCHEMY_DATABASE_URI
 
+_is_sqlite = database_url.startswith("sqlite")
+
 engine = create_engine(
     database_url,
     pool_pre_ping=True,
-    # For SQLite, we need connect_args to allow multi-threaded access
-    **({"connect_args": {"check_same_thread": False}} if database_url.startswith("sqlite") else {})
+    pool_size=10 if not _is_sqlite else 5,
+    max_overflow=20 if not _is_sqlite else 10,
+    # For SQLite, we need connect_args to allow multi-threaded access.
+    # timeout=30 mirrors a busy_timeout of 30s so concurrent writers wait
+    # for the write lock instead of failing with "database is locked".
+    **({"connect_args": {"check_same_thread": False, "timeout": 30}} if _is_sqlite else {})
 )
+
+if _is_sqlite:
+    @event.listens_for(engine, "connect")
+    def _sqlite_pragmas(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        # WAL dramatically reduces write-lock contention between worker threads.
+        cursor.execute("PRAGMA journal_mode=WAL")
+        # Wait for the write lock instead of raising immediately.
+        cursor.execute("PRAGMA busy_timeout=30000")
+        # Keep the WAL from growing unbounded during long demo sessions.
+        cursor.execute("PRAGMA wal_autocheckpoint=1000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

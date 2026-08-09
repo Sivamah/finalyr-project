@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Play, Pause, Square, RotateCcw, Zap, MapPin, Radio, Activity } from 'lucide-react';
+import { Play, Pause, Square, RotateCcw, Radio, Search, X } from 'lucide-react';
+import { motion } from 'framer-motion';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
 import LiveMapContainer from '../components/map/LiveMapContainer';
 import StatisticsPanel from '../components/map/StatisticsPanel';
-import MapFilters from '../components/map/MapFilters';
+import PageHeader from '../components/ui/PageHeader';
 
 export default function LiveSimulationMap() {
   // ── State ──────────────────────────────────────────────────────────────────
@@ -22,7 +23,6 @@ export default function LiveSimulationMap() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // Search & Filters state
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [filterProvider, setFilterProvider] = useState('All');
@@ -47,7 +47,7 @@ export default function LiveSimulationMap() {
 
   useEffect(() => {
     fetchLiveData();
-    pollRef.current = setInterval(fetchLiveData, 2500);
+    pollRef.current = setInterval(() => { if (document.visibilityState === 'visible') fetchLiveData(); }, 2500);
     return () => clearInterval(pollRef.current);
   }, [fetchLiveData]);
 
@@ -139,12 +139,7 @@ export default function LiveSimulationMap() {
       else if (t === 'food') food++;
       else if (t === 'parcel') parcel++;
     });
-    return {
-      active: filteredRequests.length,
-      ride,
-      food,
-      parcel,
-    };
+    return { active: filteredRequests.length, ride, food, parcel };
   }, [filteredRequests]);
 
   const handleResetFilters = () => {
@@ -154,87 +149,141 @@ export default function LiveSimulationMap() {
     setFilterPriority('All');
   };
 
-  // ───────────────────────────────────────────────────────────────────────────
+  const hasFilters = searchTerm || filterType !== 'All' || filterProvider !== 'All' || filterPriority !== 'All';
+  const engineActive = status.running && !status.paused;
+
   return (
-    <div className="space-y-4 pb-12">
-      {/* Top Header & Quick Action Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Radio className="h-6 w-6 text-red-500 animate-pulse" />
-            Live Google Maps Simulation
-          </h1>
-          <p className="text-gray-400 text-sm mt-0.5">Real-time pickup marker visualization for Coimbatore transportation requests</p>
-        </div>
+    <div className="space-y-6 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="Live Operations"
+        live
+        title="Coimbatore Live Network"
+        description="Real-time request telemetry across the city — pickup markers, queue composition and engine state."
+        actions={
+          <div className="flex items-center gap-2.5">
+            <div className="chip">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className={`absolute inline-flex h-full w-full rounded-full animate-ping ${engineActive ? 'bg-brand-success' : 'bg-brand-text-muted'}`} />
+                <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${engineActive ? 'bg-brand-success' : 'bg-brand-text-muted'}`} />
+              </span>
+              {engineActive ? 'Engine running' : status.paused ? 'Paused' : 'Stopped'}
+            </div>
 
-        {/* Engine Controls */}
-        <div className="flex items-center gap-2">
-          {status.running && !status.paused ? (
+            {engineActive ? (
+              <button onClick={handlePause} disabled={loading} className="btn-glass !text-brand-warning">
+                <Pause className="h-4 w-4" /> Pause
+              </button>
+            ) : (
+              <button onClick={handleStartResume} disabled={loading} className="btn-primary">
+                <Play className="h-4 w-4" /> {status.paused ? 'Resume' : 'Start Engine'}
+              </button>
+            )}
+
             <button
-              onClick={handlePause}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-medium rounded-lg text-xs transition-colors"
+              onClick={handleStop}
+              disabled={loading || (!status.running && !status.paused)}
+              className="btn-glass !text-brand-danger disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Pause className="h-4 w-4" /> Pause
+              <Square className="h-3.5 w-3.5" /> Stop
             </button>
-          ) : (
+
             <button
-              onClick={handleStartResume}
+              onClick={handleClear}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-medium rounded-lg text-xs transition-colors"
+              className="btn-glass disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Clear Queue"
             >
-              <Play className="h-4 w-4" /> {status.paused ? 'Resume' : 'Start'}
+              <RotateCcw className="h-3.5 w-3.5" /> Clear
             </button>
-          )}
-
-          <button
-            onClick={handleStop}
-            disabled={loading || (!status.running && !status.paused)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white font-medium rounded-lg text-xs transition-colors"
-          >
-            <Square className="h-4 w-4" /> Stop
-          </button>
-
-          <button
-            onClick={handleClear}
-            disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-50 text-gray-200 font-medium rounded-lg text-xs transition-colors"
-            title="Clear Queue"
-          >
-            <RotateCcw className="h-3.5 w-3.5" /> Clear
-          </button>
-        </div>
-      </div>
-
-      {/* Search & Filters Bar */}
-      <MapFilters
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-        filterType={filterType}
-        setFilterType={setFilterType}
-        filterProvider={filterProvider}
-        setFilterProvider={setFilterProvider}
-        filterPriority={filterPriority}
-        setFilterPriority={setFilterPriority}
-        providerOptions={providerOptions}
-        onResetFilters={handleResetFilters}
+          </div>
+        }
       />
 
-      {/* Main Map View Area with Floating Telemetry Panel */}
-      <div className="relative rounded-xl overflow-hidden shadow-2xl">
-        {/* Statistics Panel Floating Overlay (Top Left) */}
-        <div className="absolute top-4 left-4 z-10 w-full max-w-sm sm:max-w-md pointer-events-auto">
-          <StatisticsPanel stats={stats} lastUpdated={lastUpdated} />
+      {/* ── Filter bar ───────────────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
+        className="glass-panel rounded-[20px] p-4 flex flex-col lg:flex-row gap-3 lg:items-center"
+      >
+        <div className="relative flex-1 min-w-[240px]">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-brand-text-muted pointer-events-none" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search request ID, provider, address…"
+            className="input-glass !pl-11"
+          />
         </div>
 
-        {/* Live Map Container */}
-        <LiveMapContainer
-          requests={filteredRequests}
-          selectedRequest={selectedRequest}
-          onSelectRequest={(req) => setSelectedRequest(req)}
-          onClosePopup={() => setSelectedRequest(null)}
-        />
-      </div>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="select-glass">
+            <option value="All">All Types</option>
+            <option value="Ride">Ride</option>
+            <option value="Food">Food</option>
+            <option value="Parcel">Parcel</option>
+          </select>
+
+          <select value={filterProvider} onChange={(e) => setFilterProvider(e.target.value)} className="select-glass max-w-[160px]">
+            <option value="All">All Providers</option>
+            {providerOptions.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+
+          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} className="select-glass">
+            <option value="All">All Priority</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+
+          {hasFilters && (
+            <button onClick={handleResetFilters} className="btn-ghost !text-brand-primary">
+              <X className="h-3.5 w-3.5" /> Reset
+            </button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* ── Main Map with floating telemetry ─────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+        className="glass-panel-strong rounded-[30px] p-2"
+      >
+        <div className="relative rounded-[24px] overflow-hidden h-[62vh] min-h-[520px]">
+          <LiveMapContainer
+            requests={filteredRequests}
+            selectedRequest={selectedRequest}
+            onSelectRequest={(req) => setSelectedRequest(req)}
+            onClosePopup={() => setSelectedRequest(null)}
+            className="relative w-full h-full rounded-[24px] overflow-hidden"
+          />
+
+          {/* Floating telemetry (top-left) */}
+          <div className="absolute top-5 left-5 z-20 w-[300px] sm:w-[340px] pointer-events-auto">
+            <StatisticsPanel stats={stats} lastUpdated={lastUpdated} />
+          </div>
+
+          {/* Engine state (top-right) */}
+          <div className="absolute top-5 right-5 z-20 hidden sm:flex flex-col items-end gap-2">
+            <div className="glass-panel-strong rounded-2xl px-4 py-3 backdrop-blur-xl">
+              <div className="flex items-center gap-2.5">
+                <Radio className={`h-4 w-4 ${engineActive ? 'text-brand-success' : 'text-brand-text-muted'}`} />
+                <span className="text-[11px] font-bold tracking-[0.16em] uppercase text-white">Simulation Engine</span>
+              </div>
+              <p className="text-[11px] text-brand-text-secondary mt-1">
+                {status.status_text || (engineActive ? 'Running' : 'Stopped')} · {status.total_generated || 0} generated
+              </p>
+            </div>
+          </div>
+
+          <div className="absolute inset-0 pointer-events-none rounded-[24px] shadow-[inset_0_0_120px_rgba(5,8,22,0.55)] border border-white/[0.04]" />
+        </div>
+      </motion.div>
     </div>
   );
 }

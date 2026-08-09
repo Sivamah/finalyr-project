@@ -1,7 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { BarChart3, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
-import toast from 'react-hot-toast';
 
 import AnalyticsFilters from '../components/analytics/AnalyticsFilters';
 import KPICards from '../components/analytics/KPICards';
@@ -10,6 +8,8 @@ import RequestAnalytics from '../components/analytics/RequestAnalytics';
 import ProviderAnalytics from '../components/analytics/ProviderAnalytics';
 import TimeAnalytics from '../components/analytics/TimeAnalytics';
 import ReportExport from '../components/analytics/ReportExport';
+import PageHeader from '../components/ui/PageHeader';
+import StatusBadge from '../components/ui/StatusBadge';
 
 export default function AnalyticsDashboard() {
   const [filters, setFilters] = useState({
@@ -75,7 +75,7 @@ export default function AnalyticsDashboard() {
   // Polling setup: 2.5s interval
   useEffect(() => {
     fetchAnalytics();
-    pollRef.current = setInterval(fetchAnalytics, 2500);
+    pollRef.current = setInterval(() => { if (document.visibilityState === 'visible') fetchAnalytics(); }, 2500);
     return () => clearInterval(pollRef.current);
   }, [fetchAnalytics]);
 
@@ -94,30 +94,19 @@ export default function AnalyticsDashboard() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <BarChart3 className="h-6 w-6 text-indigo-400" />
-            Advanced Analytics & Reporting
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Real-time operational insights, provider throughput, and transportation request metrics
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Live Auto-Refresh Indicator */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg text-xs font-semibold text-green-400">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Live Auto-Refresh (2.5s)
+    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="Analytics"
+        live
+        title="Operational Intelligence"
+        description="Real-time throughput, provider performance and request lifecycle metrics across the network."
+        actions={
+          <div className="flex items-center gap-2.5">
+            <StatusBadge tone="success" label="Auto-refresh 2.5s" pulse />
+            <ReportExport analyticsData={analyticsData} filters={filters} />
           </div>
-
-          {/* Export Report Component */}
-          <ReportExport analyticsData={analyticsData} filters={filters} />
-        </div>
-      </div>
+        }
+      />
 
       {/* 1. Filters */}
       <AnalyticsFilters

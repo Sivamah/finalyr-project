@@ -1,7 +1,7 @@
 import json
 from typing import List
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
-from sqlalchemy import func
+from app.core.json_utils import json_loads
 from app.db.models import Dataset, SimulationRequest, Provider, Vehicle, OptimizationResult
 from app.schemas.orchestration import OptimizationResultResponse, DatasetResponse
 from app.api.deps import SessionDep, CurrentUser
@@ -106,14 +106,46 @@ def run_optimization(db: SessionDep, current_user: CurrentUser):
     return saved_results
 
 
-@router.get("/results", response_model=List[OptimizationResultResponse])
+@router.get("/results")
 def list_results(db: SessionDep, current_user: CurrentUser, limit: int = 50):
-    return (
-        db.query(OptimizationResult)
-        .order_by(OptimizationResult.created_at.desc())
+    from app.db.models import Trip
+    trips = (
+        db.query(Trip)
+        .order_by(Trip.created_at.desc())
         .limit(limit)
         .all()
     )
+    results = []
+    for t in trips:
+        request_ids = json_loads(t.request_ids_json, [])
+        stop_order = json_loads(t.stop_order_json, [])
+        results.append({
+            "id": t.id,
+            "batch_id": t.trip_code,
+            "request_count": len(request_ids) if isinstance(request_ids, list) else 0,
+            "provider_id": t.driver.provider_id if t.driver else None,
+            "vehicle_id": t.vehicle_id,
+            "best_route_json": {
+                "distance_km": t.total_distance_km or 0.0,
+                "duration_min": t.total_duration_min or 0.0,
+                "stops": stop_order,
+            },
+            "chosen_provider": "DMFE",
+            "chosen_vehicle": t.vehicle.name if t.vehicle else "Unknown",
+            "estimated_cost": t.estimated_cost or 0.0,
+            "eta_mins": t.eta_min or 0.0,
+            "fuel_saved_l": t.fuel_saved_l or 0.0,
+            "distance_saved_km": t.distance_saved_km or 0.0,
+            "co2_saved_kg": t.co2_saved_kg or 0.0,
+            "optimization_score": t.optimization_score or 0.0,
+            "explanation_json": {
+                "status": t.status,
+                "type": "shared" if t.is_shared else "individual",
+                "trip_code": t.trip_code,
+            },
+            "created_at": t.created_at,
+        })
+    return results
 
 
 @router.get("/results/{result_id}", response_model=OptimizationResultResponse)

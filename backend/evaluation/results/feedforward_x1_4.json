@@ -1,0 +1,462 @@
+{
+  "A_static_no_learning:w100": {
+    "workload": 100,
+    "seed": 1105,
+    "request_mix": {
+      "ride": 218,
+      "food": 181,
+      "parcel": 101
+    },
+    "fleet_size": 60,
+    "config": {
+      "pickup_weight": "0.30",
+      "route_weight": "0.25",
+      "time_weight": "0.20",
+      "capacity_weight": "0.15",
+      "priority_weight": "0.10",
+      "destination_weight": "0.20",
+      "route_overlap_weight": "0.20",
+      "min_compatibility_score": "70",
+      "max_pickup_radius_km": "5",
+      "max_allowed_delay_min": "20",
+      "max_vehicle_capacity": "6",
+      "max_weight_kg": "100",
+      "vrp_time_weight": "0.3",
+      "vrp_fuel_weight": "1.0",
+      "vrp_priority_bonus_m": "2000",
+      "service_time_min": "2",
+      "avg_speed_kmh": "25",
+      "road_factor": "1.25",
+      "fuel_price_per_l": "100",
+      "google_chunk_size": "10",
+      "driver_proximity_weight": "0.50",
+      "driver_type_weight": "0.30",
+      "driver_workload_weight": "0.20",
+      "driver_eta_limit_min": "30",
+      "driver_max_search_km": "25",
+      "driver_avg_speed_kmh": "25",
+      "admfe.mode": "static",
+      "admfe.base_bqs_threshold": "0.55",
+      "admfe.learning_enabled": "false",
+      "admfe.learning_max_bias": "0.15",
+      "traffic_multiplier": "1.0"
+    },
+    "single_pass": {
+      "trips": {
+        "trips": 58,
+        "shared_trips": 42,
+        "individual_trips": 16,
+        "total_distance_km": 794.12,
+        "avg_distance_km": 13.69,
+        "avg_shared_distance_km": 14.77,
+        "avg_individual_distance_km": 10.86,
+        "total_travel_time_min": 2104.7,
+        "avg_travel_time_min": 36.29,
+        "total_fuel_l": 39.03,
+        "avg_fuel_l": 0.67,
+        "fuel_saved_l": 15.49,
+        "co2_emitted_kg": 89.77,
+        "co2_saved_kg": 35.68,
+        "co2_reduction_vs_internal_baseline_pct": 28.4,
+        "avg_utilization_pct": 75.85,
+        "avg_waiting_min": 6.46,
+        "avg_shared_waiting_min": 8.16,
+        "avg_optimization_score": 100.0,
+        "distance_saved_km": 314.89,
+        "matrix_google": 0,
+        "matrix_haversine": 58,
+        "requests_completed": 100,
+        "requests_failed": 0
+      },
+      "drivers": {
+        "fleet_size": 60,
+        "drivers_used": 58,
+        "driver_pool_utilization_pct": 96.7,
+        "avg_trips_per_used_driver": 1.0,
+        "max_trips_on_driver": 1
+      },
+      "batches": {
+        "shared_batches_created": 42,
+        "avg_compatibility_score": 85.05,
+        "std_compatibility_score": 5.58,
+        "min_compatibility_score": 71.5,
+        "max_compatibility_score": 94.2
+      },
+      "requests_processed": 100,
+      "shared_trips": 42,
+      "individual_trips": 16,
+      "assignments_created": 58,
+      "unassigned_count": 0
+    },
+    "waves": {
+      "days": 5,
+      "refit_fired_day": null,
+      "trips_total": 290,
+      "total_distance_km": 4231.85,
+      "total_fuel_l": 212.49,
+      "total_co2_kg": 488.73,
+      "requests_completed": 500,
+      "requests_failed": 0,
+      "completion_rate_pct": 100.0,
+      "per_day": [
+        {
+          "day": 1,
+          "trips": 58,
+          "waves": 0,
+          "mean_delay_error_min": 2.58,
+          "mean_compat_delay_error_min": 8.39
+        },
+        {
+          "day": 2,
+          "trips": 58,
+          "waves": 0,
+          "mean_delay_error_min": 2.2,
+          "mean_compat_delay_error_min": 6.99
+        },
+        {
+          "day": 3,
+          "trips": 59,
+          "waves": 1,
+          "mean_delay_error_min": 2.53,
+          "mean_compat_delay_error_min": 7.85
+        },
+        {
+          "day": 4,
+          "trips": 59,
+          "waves": 1,
+          "mean_delay_error_min": 2.88,
+          "mean_compat_delay_error_min": 9.17
+        },
+        {
+          "day": 5,
+          "trips": 56,
+          "waves": 0,
+          "mean_delay_error_min": 2.59,
+          "mean_compat_delay_error_min": 8.21
+        }
+      ]
+    },
+    "timing": {
+      "pipeline_total_s": 0.759,
+      "avg_processing_ms_per_request": 7.59,
+      "batch_formation_total_s": 0.063,
+      "batch_formation_avg_ms": 63.42,
+      "batch_formation_calls": 1,
+      "driver_selection_total_s": 0.214,
+      "driver_selection_avg_ms": 3.68,
+      "driver_selection_calls": 58,
+      "dispatch_total_s": 0.58,
+      "dispatch_calls": 58
+    },
+    "learning": null
+  },
+  "B_adaptive_learning:w100": {
+    "workload": 100,
+    "seed": 1105,
+    "request_mix": {
+      "ride": 218,
+      "food": 181,
+      "parcel": 101
+    },
+    "fleet_size": 60,
+    "config": {
+      "pickup_weight": "0.30",
+      "route_weight": "0.25",
+      "time_weight": "0.20",
+      "capacity_weight": "0.15",
+      "priority_weight": "0.10",
+      "destination_weight": "0.20",
+      "route_overlap_weight": "0.20",
+      "min_compatibility_score": "70",
+      "max_pickup_radius_km": "5",
+      "max_allowed_delay_min": "20",
+      "max_vehicle_capacity": "6",
+      "max_weight_kg": "100",
+      "vrp_time_weight": "0.3",
+      "vrp_fuel_weight": "1.0",
+      "vrp_priority_bonus_m": "2000",
+      "service_time_min": "2",
+      "avg_speed_kmh": "25",
+      "road_factor": "1.25",
+      "fuel_price_per_l": "100",
+      "google_chunk_size": "10",
+      "driver_proximity_weight": "0.50",
+      "driver_type_weight": "0.30",
+      "driver_workload_weight": "0.20",
+      "driver_eta_limit_min": "30",
+      "driver_max_search_km": "25",
+      "driver_avg_speed_kmh": "25",
+      "admfe.mode": "adaptive",
+      "admfe.base_bqs_threshold": "0.55",
+      "admfe.learning_enabled": "true",
+      "admfe.learning_max_bias": "0.15",
+      "traffic_multiplier": "1.0"
+    },
+    "single_pass": {
+      "trips": {
+        "trips": 58,
+        "shared_trips": 40,
+        "individual_trips": 18,
+        "total_distance_km": 757.95,
+        "avg_distance_km": 13.07,
+        "avg_shared_distance_km": 13.07,
+        "avg_individual_distance_km": 13.06,
+        "total_travel_time_min": 2017.9,
+        "avg_travel_time_min": 34.79,
+        "total_fuel_l": 36.3,
+        "avg_fuel_l": 0.63,
+        "fuel_saved_l": 15.6,
+        "co2_emitted_kg": 83.49,
+        "co2_saved_kg": 35.85,
+        "co2_reduction_vs_internal_baseline_pct": 30.0,
+        "avg_utilization_pct": 76.07,
+        "avg_waiting_min": 5.48,
+        "avg_shared_waiting_min": 7.04,
+        "avg_optimization_score": 100.0,
+        "distance_saved_km": 315.8,
+        "matrix_google": 0,
+        "matrix_haversine": 58,
+        "requests_completed": 100,
+        "requests_failed": 0
+      },
+      "drivers": {
+        "fleet_size": 60,
+        "drivers_used": 58,
+        "driver_pool_utilization_pct": 96.7,
+        "avg_trips_per_used_driver": 1.0,
+        "max_trips_on_driver": 1
+      },
+      "batches": {
+        "shared_batches_created": 40,
+        "avg_compatibility_score": 83.75,
+        "std_compatibility_score": 5.92,
+        "min_compatibility_score": 73.5,
+        "max_compatibility_score": 94.6
+      },
+      "requests_processed": 100,
+      "shared_trips": 40,
+      "individual_trips": 18,
+      "assignments_created": 58,
+      "unassigned_count": 0
+    },
+    "waves": {
+      "days": 5,
+      "refit_fired_day": 4,
+      "trips_total": 295,
+      "total_distance_km": 4139.29,
+      "total_fuel_l": 205.9,
+      "total_co2_kg": 473.57,
+      "requests_completed": 500,
+      "requests_failed": 0,
+      "completion_rate_pct": 100.0,
+      "per_day": [
+        {
+          "day": 1,
+          "trips": 58,
+          "waves": 0,
+          "mean_delay_error_min": 2.19,
+          "mean_compat_delay_error_min": 6.9,
+          "outcomes": 58,
+          "refit_count": 0,
+          "corridor_delay_multipliers": {},
+          "corridor_utilization_bias": {}
+        },
+        {
+          "day": 2,
+          "trips": 60,
+          "waves": 0,
+          "mean_delay_error_min": 1.76,
+          "mean_compat_delay_error_min": 5.33,
+          "outcomes": 118,
+          "refit_count": 0,
+          "corridor_delay_multipliers": {},
+          "corridor_utilization_bias": {}
+        },
+        {
+          "day": 3,
+          "trips": 60,
+          "waves": 0,
+          "mean_delay_error_min": 2.3,
+          "mean_compat_delay_error_min": 7.31,
+          "outcomes": 178,
+          "refit_count": 0,
+          "corridor_delay_multipliers": {},
+          "corridor_utilization_bias": {}
+        },
+        {
+          "day": 4,
+          "trips": 60,
+          "waves": 0,
+          "mean_delay_error_min": 2.19,
+          "mean_compat_delay_error_min": 6.73,
+          "outcomes": 238,
+          "refit_count": 200,
+          "corridor_delay_multipliers": {
+            "ride": 1.4,
+            "parcel|ride": 1.4,
+            "food|ride": 1.4,
+            "food|parcel": 1.4,
+            "food": 1.4,
+            "parcel": 1.4
+          },
+          "corridor_utilization_bias": {
+            "ride": 1.0,
+            "parcel|ride": 1.0,
+            "food|ride": 1.0,
+            "food|parcel": 1.0,
+            "food": 1.0,
+            "parcel": 1.0
+          }
+        },
+        {
+          "day": 5,
+          "trips": 57,
+          "waves": 0,
+          "mean_delay_error_min": 2.36,
+          "mean_compat_delay_error_min": 7.07,
+          "outcomes": 295,
+          "refit_count": 200,
+          "corridor_delay_multipliers": {
+            "ride": 1.4,
+            "parcel|ride": 1.4,
+            "food|ride": 1.4,
+            "food|parcel": 1.4,
+            "food": 1.4,
+            "parcel": 1.4
+          },
+          "corridor_utilization_bias": {
+            "ride": 1.0,
+            "parcel|ride": 1.0,
+            "food|ride": 1.0,
+            "food|parcel": 1.0,
+            "food": 1.0,
+            "parcel": 1.0
+          }
+        }
+      ]
+    },
+    "timing": {
+      "pipeline_total_s": 0.937,
+      "avg_processing_ms_per_request": 9.37,
+      "batch_formation_total_s": 0.262,
+      "batch_formation_avg_ms": 261.91,
+      "batch_formation_calls": 1,
+      "driver_selection_total_s": 0.234,
+      "driver_selection_avg_ms": 4.03,
+      "driver_selection_calls": 58,
+      "dispatch_total_s": 0.548,
+      "dispatch_calls": 58
+    },
+    "learning": {
+      "state_summary": {
+        "enabled": true,
+        "refit_enabled": true,
+        "version": 3,
+        "outcomes": {
+          "count": 295,
+          "shared": 203,
+          "individual": 92,
+          "completed": 295,
+          "failed": 0,
+          "avg_delay_min": 6.91,
+          "avg_util_pct": 73.2,
+          "avg_fuel_l": 0.825,
+          "avg_duration_min": 41.49,
+          "delay_error": 0.0922,
+          "delay_bias_min": 1.975,
+          "util_bias_pp": 0.0,
+          "fuel_ratio": 1.0
+        },
+        "factor_bias": {
+          "pickup": 0.0,
+          "route": 0.15,
+          "time": 0.15,
+          "capacity": 0.0,
+          "priority": 0.0
+        },
+        "corridors": [
+          "ride",
+          "parcel|ride",
+          "food|ride",
+          "food|parcel",
+          "food",
+          "parcel"
+        ],
+        "corridor_multipliers": {
+          "ride": 1.4,
+          "parcel|ride": 1.4,
+          "food|ride": 1.4,
+          "food|parcel": 1.4,
+          "food": 1.4,
+          "parcel": 1.4
+        },
+        "corridor_utilization_bias": {
+          "ride": 1.0,
+          "parcel|ride": 1.0,
+          "food|ride": 1.0,
+          "food|parcel": 1.0,
+          "food": 1.0,
+          "parcel": 1.0
+        },
+        "corridor_fuel_multiplier": {
+          "ride": 1.0,
+          "parcel|ride": 1.0,
+          "food|ride": 1.0,
+          "food|parcel": 1.0,
+          "food": 1.0,
+          "parcel": 1.0
+        },
+        "corridor_co2_multiplier": {
+          "ride": 1.0,
+          "parcel|ride": 1.0,
+          "food|ride": 1.0,
+          "food|parcel": 1.0,
+          "food": 1.0,
+          "parcel": 1.0
+        },
+        "drivers_tracked": 60,
+        "corridor_driver_quality": {
+          "ride": {
+            "driver_id": 33,
+            "quality": 0.8564,
+            "samples": 76
+          },
+          "parcel|ride": {
+            "driver_id": 28,
+            "quality": 0.8191,
+            "samples": 37
+          },
+          "food|ride": {
+            "driver_id": 30,
+            "quality": 0.8611,
+            "samples": 64
+          },
+          "food|parcel": {
+            "driver_id": 20,
+            "quality": 0.8227,
+            "samples": 32
+          },
+          "food": {
+            "driver_id": 8,
+            "quality": 0.9278,
+            "samples": 58
+          },
+          "parcel": {
+            "driver_id": 4,
+            "quality": 0.909,
+            "samples": 28
+          }
+        },
+        "last_refit_count": 200,
+        "residual_counts": {
+          "delay": 295,
+          "utilization": 295,
+          "fuel": 295,
+          "co2": 295
+        },
+        "last_updated": "2026-08-08T09:26:45.734589+00:00"
+      },
+      "drivers_tracked": 60
+    }
+  }
+}

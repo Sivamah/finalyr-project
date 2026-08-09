@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Save, RotateCcw, Zap, Building2, Truck, BrainCircuit, Sliders, FileCode, History } from 'lucide-react';
+import { Save, RotateCcw, Zap, Building2, Truck, BrainCircuit, Sliders, FileCode, History } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+
+import PageHeader from '../components/ui/PageHeader';
 
 import SimulationSettings from '../components/config/SimulationSettings';
 import ProviderConfiguration from '../components/config/ProviderConfiguration';
@@ -22,7 +24,6 @@ export default function SystemConfiguration() {
   });
   const [providers, setProviders] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // Fetch all configuration data
@@ -40,8 +41,6 @@ export default function SystemConfiguration() {
     } catch (err) {
       console.error('Failed to fetch configuration data:', err);
       toast.error('Failed to load system configurations');
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -136,117 +135,51 @@ export default function SystemConfiguration() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* ── Page Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <Settings className="h-6 w-6 text-indigo-400" />
-            System Configuration & AI Rules Management
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Centralized admin configuration portal for simulation engine, provider constraints, vehicle rules, and AI parameters
-          </p>
-        </div>
-
-        {/* Global Action Buttons */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleResetDefaults}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 font-medium rounded-lg text-xs transition-colors"
-          >
-            <RotateCcw className="h-4 w-4 text-amber-400" /> Factory Reset
-          </button>
-
-          <button
-            onClick={handleSaveChanges}
-            disabled={saving}
-            className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition-colors shadow-sm disabled:opacity-50"
-          >
-            <Save className="h-4 w-4" /> {saving ? 'Saving...' : 'Save Configuration'}
-          </button>
-        </div>
-      </div>
+    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="System"
+        title="Configuration"
+        description="Engine parameters, provider constraints, vehicle rules and AI thresholds — audited and reversible."
+        actions={
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleResetDefaults}
+              className="btn-glass !text-brand-warning"
+            >
+              <RotateCcw className="h-4 w-4" /> Factory Reset
+            </button>
+            <button
+              onClick={handleSaveChanges}
+              disabled={saving}
+              className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save Configuration'}
+            </button>
+          </div>
+        }
+      />
 
       {/* ── Navigation Tabs ─────────────────────────────────────────────────── */}
-      <div className="space-y-4">
-        <div className="flex items-center border-b border-gray-700 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('simulation')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'simulation'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Zap className="h-4 w-4" /> Simulation Settings
-          </button>
-
-          <button
-            onClick={() => setActiveTab('provider')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'provider'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Building2 className="h-4 w-4" /> Provider Rules
-          </button>
-
-          <button
-            onClick={() => setActiveTab('vehicle')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'vehicle'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Truck className="h-4 w-4" /> Vehicle Constraints
-          </button>
-
-          <button
-            onClick={() => setActiveTab('ai_rules')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'ai_rules'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <BrainCircuit className="h-4 w-4" /> AI Rule Configs
-          </button>
-
-          <button
-            onClick={() => setActiveTab('preferences')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'preferences'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <Sliders className="h-4 w-4" /> Preferences
-          </button>
-
-          <button
-            onClick={() => setActiveTab('backup')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'backup'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <FileCode className="h-4 w-4" /> Backup & Restore
-          </button>
-
-          <button
-            onClick={() => setActiveTab('audit')}
-            className={`flex items-center gap-2 py-3 px-4 font-bold text-sm border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === 'audit'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-gray-400 hover:text-gray-200'
-            }`}
-          >
-            <History className="h-4 w-4" /> Audit Log ({auditLogs.length})
-          </button>
+      <div className="space-y-5">
+        <div className="glass-panel rounded-[18px] p-1.5 flex items-center gap-1.5 overflow-x-auto custom-scrollbar">
+          {[
+            { id: 'simulation', label: 'Simulation', icon: Zap },
+            { id: 'provider', label: 'Provider Rules', icon: Building2 },
+            { id: 'vehicle', label: 'Vehicle', icon: Truck },
+            { id: 'ai_rules', label: 'AI Rules', icon: BrainCircuit },
+            { id: 'preferences', label: 'Preferences', icon: Sliders },
+            { id: 'backup', label: 'Backup & Restore', icon: FileCode },
+            { id: 'audit', label: `Audit Log (${auditLogs.length})`, icon: History },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`tab-pill shrink-0 ${activeTab === tab.id ? 'tab-pill-active' : ''}`}
+            >
+              <tab.icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Tab 1: Simulation Settings */}

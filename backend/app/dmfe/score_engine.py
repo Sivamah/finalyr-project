@@ -11,7 +11,7 @@ haversine distances, vector angles, and timestamp arithmetic.
 
 import math
 from datetime import datetime, timezone
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from app.engine.distance import haversine
 
@@ -80,11 +80,20 @@ def route_overlap_score(
     """
     Estimates what fraction of the combined trip is shared route.
 
-    Strategy (no routing engine):
-      - Compute mid-point of each trip
-      - Measure distance between mid-points
-      - Compare to average trip length
-      - Close mid-points + similar direction = high overlap
+    Strategy (no routing engine), average of three complementary proxies:
+      - shared-pickup proxy: 1 - pickup_gap / avg_trip_length
+          Identical/nearby pickups share the entire pickup leg — the
+          detour to the second pickup is the pickup gap itself.
+      - shared-drop proxy:   1 - drop_gap / avg_trip_length
+          Nearby drops share the final delivery leg.
+      - midpoint proxy:      1 - mid_gap / avg_trip_length
+          Close mid-points indicate the bulk of both trips is the same
+          corridor (the historical heuristic).
+
+    Averaging the pickup/drop endpoint proxies with the midpoint proxy
+    fixes the degenerate case where two trips share an exact pickup but
+    head in different directions: the midpoint gap alone would report
+    ~zero overlap even though the pickup leg is 100% shared.
 
     Returns (score, label) where label ∈ {"High", "Medium", "Low"}.
     """
@@ -94,13 +103,17 @@ def route_overlap_score(
     mid2_lng = (pickup2_lng + drop2_lng) / 2
 
     mid_dist_km = haversine(mid1_lat, mid1_lng, mid2_lat, mid2_lng)
+    pickup_gap_km = haversine(pickup1_lat, pickup1_lng, pickup2_lat, pickup2_lng)
+    drop_gap_km = haversine(drop1_lat, drop1_lng, drop2_lat, drop2_lng)
     trip1_len = haversine(pickup1_lat, pickup1_lng, drop1_lat, drop1_lng)
     trip2_len = haversine(pickup2_lat, pickup2_lng, drop2_lat, drop2_lng)
     avg_len = (trip1_len + trip2_len) / 2.0 if (trip1_len + trip2_len) > 0 else 1.0
 
-    # Overlap ratio: smaller mid-point gap relative to trip length → more overlap
-    ratio = mid_dist_km / max(avg_len, 0.1)
-    score = max(0.0, 1.0 - ratio)
+    # Each proxy: smaller gap relative to trip length → more overlap
+    mid_score = max(0.0, 1.0 - mid_dist_km / max(avg_len, 0.1))
+    pickup_score = max(0.0, 1.0 - pickup_gap_km / max(avg_len, 0.1))
+    drop_score = max(0.0, 1.0 - drop_gap_km / max(avg_len, 0.1))
+    score = (mid_score + pickup_score + drop_score) / 3.0
 
     if score >= 0.7:
         label = "High"
@@ -141,6 +154,24 @@ def time_window_score(
     return round(score, 4), round(diff_min, 1)
 
 
+def request_times_within_window(
+    ts1: Optional[datetime],
+    ts2: Optional[datetime],
+    max_delay_min: float = 20.0,
+) -> bool:
+    """
+    Cheap time-window gate shared by the batch generator and the adaptive
+    compatibility matrix.  Unknown timestamps never block batching.
+    """
+    if ts1 is None or ts2 is None:
+        return True
+    if ts1.tzinfo is None:
+        ts1 = ts1.replace(tzinfo=timezone.utc)
+    if ts2.tzinfo is None:
+        ts2 = ts2.replace(tzinfo=timezone.utc)
+    return abs((ts1 - ts2).total_seconds()) / 60.0 <= max_delay_min
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Vehicle Capacity Score
 # ─────────────────────────────────────────────────────────────────────────────
@@ -177,24 +208,7 @@ def vehicle_capacity_score(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 6. Provider Compatibility Score
-# ─────────────────────────────────────────────────────────────────────────────
-
-def provider_compatibility_score(provider_id_1: int, provider_id_2: int) -> Tuple[float, str]:
-    """
-    Score based on whether the providers support cross-service batching.
-
-    Same provider → 1.0 (optimal);
-    Different providers → 0.75 (cross-provider batching allowed but less ideal).
-    """
-    if provider_id_1 == provider_id_2:
-        return 1.0, "Same provider — optimal for batching"
-    else:
-        return 0.75, "Cross-provider batching — supported"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 7. Priority Score
+# 6. Priority Score
 # ─────────────────────────────────────────────────────────────────────────────
 
 PRIORITY_VALUES = {"Low": 0.2, "Medium": 0.6, "High": 1.0}
@@ -224,7 +238,7 @@ def priority_score(priorities: List[str]) -> Tuple[float, str]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 8. Estimated Delay Score
+# 7. Estimated Delay Score
 # ─────────────────────────────────────────────────────────────────────────────
 
 def estimated_delay_score(
@@ -247,4 +261,88 @@ def estimated_delay_score(
     else:
         score = max(0.0, 1.0 - (delay_min / max_delay_min))
 
+    return round(score, 4), round(delay_min, 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 8. Fuel & CO2 Scores (Continuous Penalties)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def fuel_score(
+    estimated_fuel_l: float,
+    max_acceptable_fuel_l: float = 10.0,
+) -> Tuple[float, float]:
+    """
+    Score based on estimated fuel consumption.
+
+    0 fuel → 1.0; max_acceptable_fuel_l or more → 0.0
+    Returns (score, fuel_l).
+    """
+    if estimated_fuel_l <= 0:
+        return 1.0, 0.0
+    if estimated_fuel_l >= max_acceptable_fuel_l:
+        return 0.0, estimated_fuel_l
+    score = 1.0 - (estimated_fuel_l / max_acceptable_fuel_l)
+    return round(score, 4), round(estimated_fuel_l, 2)
+
+
+def co2_score(
+    estimated_co2_kg: float,
+    max_acceptable_co2_kg: float = 25.0,
+) -> Tuple[float, float]:
+    """
+    Score based on estimated CO2 emissions.
+
+    0 CO2 → 1.0; max_acceptable_co2_kg or more → 0.0
+    Returns (score, co2_kg).
+    """
+    if estimated_co2_kg <= 0:
+        return 1.0, 0.0
+    if estimated_co2_kg >= max_acceptable_co2_kg:
+        return 0.0, estimated_co2_kg
+    score = 1.0 - (estimated_co2_kg / max_acceptable_co2_kg)
+    return round(score, 4), round(estimated_co2_kg, 2)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 9. Cost Score
+# ─────────────────────────────────────────────────────────────────────────────
+
+def cost_score(
+    estimated_cost: float,
+    max_acceptable_cost: float = 50.0,
+) -> Tuple[float, float]:
+    """
+    Score based on estimated operating cost.
+
+    0 cost → 1.0; max_acceptable_cost or more → 0.0
+    Returns (score, cost).
+    """
+    if estimated_cost <= 0:
+        return 1.0, 0.0
+    if estimated_cost >= max_acceptable_cost:
+        return 0.0, estimated_cost
+    score = 1.0 - (estimated_cost / max_acceptable_cost)
+    return round(score, 4), round(estimated_cost, 2)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 10. Direct Delay Penalty Score
+# ─────────────────────────────────────────────────────────────────────────────
+
+def delay_penalty_score(
+    delay_min: float,
+    max_delay_min: float = 20.0,
+) -> Tuple[float, float]:
+    """
+    Score based on a directly provided delay in minutes.
+
+    0 delay → 1.0; max_delay_min or more → 0.0
+    Returns (score, delay_min).
+    """
+    if delay_min <= 0:
+        return 1.0, 0.0
+    if delay_min >= max_delay_min:
+        return 0.0, delay_min
+    score = 1.0 - (delay_min / max_delay_min)
     return round(score, 4), round(delay_min, 1)

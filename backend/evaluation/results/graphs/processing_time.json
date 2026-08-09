@@ -1,0 +1,57 @@
+{
+  "title": "Processing Time",
+  "x": [
+    50,
+    100,
+    250,
+    500
+  ],
+  "static_avg_ms_per_request": [
+    16.75,
+    11.26,
+    8.08,
+    7.96
+  ],
+  "adaptive_avg_ms_per_request": [
+    18.34,
+    13.33,
+    10.57,
+    14.72
+  ],
+  "static_pipeline_total_s": [
+    0.838,
+    1.126,
+    2.019,
+    3.981
+  ],
+  "adaptive_pipeline_total_s": [
+    0.917,
+    1.333,
+    2.644,
+    7.36
+  ],
+  "static_route_opt_s": [
+    0.044,
+    0.087,
+    0.111,
+    0.093
+  ],
+  "adaptive_route_opt_s": [
+    0.032,
+    0.093,
+    0.085,
+    0.101
+  ],
+  "static_batch_formation_s": [
+    0.015,
+    0.043,
+    0.345,
+    1.252
+  ],
+  "adaptive_batch_formation_s": [
+    0.111,
+    0.189,
+    0.945,
+    4.263
+  ]
+}

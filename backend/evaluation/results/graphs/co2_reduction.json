@@ -1,0 +1,51 @@
+{
+  "title": "CO2 Emissions and Savings (single pass)",
+  "x": [
+    50,
+    100,
+    250,
+    500
+  ],
+  "baseline_kg": [
+    32.55,
+    72.3,
+    183.34,
+    396.56
+  ],
+  "static_emitted_kg": [
+    35.56,
+    91.45,
+    94.83,
+    94.3
+  ],
+  "adaptive_emitted_kg": [
+    35.97,
+    88.8,
+    98.51,
+    98.74
+  ],
+  "static_saved_kg": [
+    7.78,
+    35.15,
+    70.99,
+    73.56
+  ],
+  "adaptive_saved_kg": [
+    9.07,
+    36.98,
+    80.38,
+    80.81
+  ],
+  "static_reduction_pct": [
+    18.0,
+    27.8,
+    42.8,
+    43.8
+  ],
+  "adaptive_reduction_pct": [
+    20.1,
+    29.4,
+    44.9,
+    45.0
+  ]
+}

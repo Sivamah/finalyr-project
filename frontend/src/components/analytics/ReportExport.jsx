@@ -23,17 +23,6 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
       csvContent += `Filter Type,${filters.requestType || 'All'}\n`;
       csvContent += `Filter Status,${filters.status || 'All'}\n\n`;
 
-      csvContent += `--- SUMMARY KPIS ---\n`;
-      csvContent += `Metric,Value\n`;
-      csvContent += `Total Requests Generated,${kpi.total_requests || 0}\n`;
-      csvContent += `Active Requests,${kpi.active_requests || 0}\n`;
-      csvContent += `Pending Requests,${kpi.pending_requests || 0}\n`;
-      csvContent += `Completed Requests,${kpi.completed_requests || 0}\n`;
-      csvContent += `Requests Per Minute (RPM),${kpi.requests_per_minute || 0}\n`;
-      csvContent += `Avg Processing Time (sec),${kpi.avg_processing_time_sec || 0}\n`;
-      csvContent += `Total Providers,${kpi.total_providers || 0}\n`;
-      csvContent += `Active Providers,${kpi.active_providers || 0}\n\n`;
-
       csvContent += `--- SERVICE ANALYTICS ---\n`;
       csvContent += `Ride Requests,${reqAnalytics.total_ride_requests || 0}\n`;
       csvContent += `Food Requests,${reqAnalytics.total_food_requests || 0}\n`;
@@ -74,17 +63,7 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
           <h2>AI Orchestration Platform — Analytics & Operational Report</h2>
           <p><b>Generated At:</b> ${timestamp}</p>
           <hr/>
-          <h3>Summary KPIs</h3>
-          <table border="1" cellspacing="0" cellpadding="5">
-            <tr style="background-color: #4f46e5; color: #ffffff;"><th>Metric</th><th>Value</th></tr>
-            <tr><td>Total Requests Generated</td><td>${kpi.total_requests || 0}</td></tr>
-            <tr><td>Active Requests</td><td>${kpi.active_requests || 0}</td></tr>
-            <tr><td>Pending Requests</td><td>${kpi.pending_requests || 0}</td></tr>
-            <tr><td>Completed Requests</td><td>${kpi.completed_requests || 0}</td></tr>
-            <tr><td>Requests Per Minute (RPM)</td><td>${kpi.requests_per_minute || 0}</td></tr>
-            <tr><td>Avg Processing Time (sec)</td><td>${kpi.avg_processing_time_sec || 0}</td></tr>
-            <tr><td>Completion Rate</td><td>${reqAnalytics.completion_rate_pct || 0}%</td></tr>
-          </table>
+          <h3>Service Analytics</h3>
 
           <h3>Provider Performance Summary</h3>
           <table border="1" cellspacing="0" cellpadding="5">
@@ -114,12 +93,12 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
       const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `analytics_report_${Date.now()}.xlsx`;
+      link.download = `analytics_report_${Date.now()}.xls`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
 
-      toast.success("Excel Report (.xlsx) Exported Successfully");
+      toast.success("Excel-compatible report (.xls HTML) Exported Successfully");
       setModalOpen(false);
     } catch (err) {
       toast.error("Failed to export Excel report");
@@ -163,14 +142,6 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
               <div class="subtitle">Operational Analytics & System Performance Report</div>
             </div>
             <div class="badge">Timestamp: ${timestamp}</div>
-          </div>
-
-          <h3>System Key Performance Indicators</h3>
-          <div class="grid">
-            <div class="card"><div class="card-label">Total Requests</div><div class="card-value">${kpi.total_requests || 0}</div></div>
-            <div class="card"><div class="card-label">Active / Pending</div><div class="card-value">${kpi.active_requests || 0}</div></div>
-            <div class="card"><div class="card-label">Completed</div><div class="card-value">${kpi.completed_requests || 0}</div></div>
-            <div class="card"><div class="card-label">Requests / Min</div><div class="card-value">${kpi.requests_per_minute || 0}</div></div>
           </div>
 
           <h3>Service Breakdown</h3>
@@ -289,8 +260,8 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
                     <FileSpreadsheet className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-white">Excel Document (.xlsx)</p>
-                    <p className="text-xs text-gray-400">Formatted tables with styled headers for spreadsheet analysis</p>
+                    <p className="text-sm font-bold text-white">Excel-compatible Document (.xls)</p>
+                    <p className="text-xs text-gray-400">HTML table readable by Excel — not a native .xlsx workbook</p>
                   </div>
                 </div>
                 <Download className="h-4 w-4 text-gray-400 group-hover:text-emerald-400 transition-colors" />

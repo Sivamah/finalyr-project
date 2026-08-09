@@ -1,62 +1,47 @@
 import React from 'react';
 import { Truck, CheckCircle2, Navigation, Wrench } from 'lucide-react';
 
-function StatCard({ label, value, icon: Icon, colorBg, borderColor, textColor }) {
+function StatCard({ label, value, icon: Icon, color, bg }) {
   return (
-    <div className={`bg-gray-800 border ${borderColor || 'border-gray-700'} rounded-xl p-4 shadow-sm hover:border-gray-600 transition-all`}>
-      <div className="flex items-center justify-between">
+    <div className="glass-card rounded-[20px] p-4 relative overflow-hidden group">
+      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full blur-[30px] opacity-40 group-hover:opacity-70 transition-opacity duration-500 pointer-events-none" style={{ background: color }} />
+      <div className="relative flex items-center justify-between">
         <div>
-          <p className="text-xs text-gray-400 font-medium truncate">{label}</p>
-          <p className={`text-2xl font-bold font-mono mt-1 ${textColor || 'text-white'}`}>{value}</p>
+          <p className="text-[10.5px] font-medium text-brand-text-muted truncate tracking-wide">{label}</p>
+          <p className="text-[22px] font-display font-semibold mt-1.5 tabular-nums tracking-tight" style={{ color }}>
+            {value}
+          </p>
         </div>
-        <div className={`p-3 rounded-lg ${colorBg}`}>
-          <Icon className="h-5 w-5" />
+        <div
+          className="p-2.5 rounded-xl border border-white/15 flex items-center justify-center"
+          style={{ background: bg, boxShadow: `0 0 18px ${bg}` }}
+        >
+          <Icon className="h-4.5 w-4.5" style={{ color }} />
         </div>
       </div>
     </div>
   );
 }
 
+const THEME = {
+  total: { color: '#FFFFFF', bg: 'rgba(148,163,184,0.08)' },
+  available: { color: '#10B981', bg: 'rgba(16,185,129,0.16)' },
+  service: { color: '#3B82F6', bg: 'rgba(59,130,246,0.16)' },
+  maintenance: { color: '#F59E0B', bg: 'rgba(245,158,11,0.14)' },
+};
+
 export default function VehicleStatistics({ stats = {} }) {
   const cards = [
-    {
-      label: 'Total Vehicles',
-      value: stats.total_vehicles ?? 0,
-      icon: Truck,
-      colorBg: 'bg-indigo-500/10 text-indigo-400',
-      borderColor: 'border-indigo-500/20',
-      textColor: 'text-white',
-    },
-    {
-      label: 'Available Vehicles',
-      value: stats.available_vehicles ?? 0,
-      icon: CheckCircle2,
-      colorBg: 'bg-green-500/10 text-green-400',
-      borderColor: 'border-green-500/20',
-      textColor: 'text-green-400',
-    },
-    {
-      label: 'Vehicles in Service (Busy)',
-      value: stats.vehicles_in_service ?? 0,
-      icon: Navigation,
-      colorBg: 'bg-blue-500/10 text-blue-400',
-      borderColor: 'border-blue-500/20',
-      textColor: 'text-blue-400',
-    },
-    {
-      label: 'Under Maintenance',
-      value: stats.maintenance_vehicles ?? 0,
-      icon: Wrench,
-      colorBg: 'bg-amber-500/10 text-amber-400',
-      borderColor: 'border-amber-500/20',
-      textColor: 'text-amber-400',
-    },
+    { label: 'Total Vehicles', value: stats.total_vehicles ?? 0, icon: Truck, theme: 'total' },
+    { label: 'Available', value: stats.available_vehicles ?? 0, icon: CheckCircle2, theme: 'available' },
+    { label: 'In Service', value: stats.vehicles_in_service ?? 0, icon: Navigation, theme: 'service' },
+    { label: 'Maintenance', value: stats.maintenance_vehicles ?? 0, icon: Wrench, theme: 'maintenance' },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {cards.map((c) => (
-        <StatCard key={c.label} {...c} />
+        <StatCard key={c.label} {...c} {...THEME[c.theme]} />
       ))}
     </div>
   );

@@ -1,12 +1,14 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  BrainCircuit, RefreshCw, BarChart2, PieChart as PieIcon, Layers, Sliders, CheckCircle2, AlertCircle, FileText, Info
+  BrainCircuit, RefreshCw, BarChart2, PieChart as PieIcon, FileText, Info
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import api from '../services/api';
-import toast from 'react-hot-toast';
+
+import PageHeader from '../components/ui/PageHeader';
+import StatusBadge from '../components/ui/StatusBadge';
 
 import ExplanationFilters from '../components/xai/ExplanationFilters';
 import DecisionCard from '../components/xai/DecisionCard';
@@ -15,6 +17,61 @@ import ExplanationTimeline from '../components/xai/ExplanationTimeline';
 import CompatibilityGauge from '../components/xai/CompatibilityGauge';
 
 const PIE_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#a855f7'];
+
+function buildOverview(items) {
+  const total = items.length;
+  if (total === 0) {
+    return {
+      total_explanations: 0,
+      avg_compatibility_score: 0,
+      avg_confidence_score: 0,
+      most_common_decision: 'N/A',
+      decision_breakdown: [],
+      score_distribution: [],
+      explanations: [],
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  const sumCompat = items.reduce(
+    (s, e) => s + (e.factors?.overall_compatibility_score || 0), 0
+  );
+  const sumConf = items.reduce((s, e) => s + (e.confidence_score || 0), 0);
+
+  const decisionCounts = {};
+  const scoreRanges = { '90-100%': 0, '80-89%': 0, '70-79%': 0, '<70%': 0 };
+
+  items.forEach((e) => {
+    const decision = e.decision || 'Unknown';
+    decisionCounts[decision] = (decisionCounts[decision] || 0) + 1;
+
+    const score = e.factors?.overall_compatibility_score || 0;
+    if (score >= 90) scoreRanges['90-100%'] += 1;
+    else if (score >= 80) scoreRanges['80-89%'] += 1;
+    else if (score >= 70) scoreRanges['70-79%'] += 1;
+    else scoreRanges['<70%'] += 1;
+  });
+
+  let mostCommon = 'N/A';
+  let maxCount = -1;
+  Object.entries(decisionCounts).forEach(([name, count]) => {
+    if (count > maxCount) {
+      mostCommon = name;
+      maxCount = count;
+    }
+  });
+
+  return {
+    total_explanations: total,
+    avg_compatibility_score: Math.round((sumCompat / total) * 10) / 10,
+    avg_confidence_score: Math.round((sumConf / total) * 10) / 10,
+    most_common_decision: mostCommon,
+    decision_breakdown: Object.entries(decisionCounts).map(([name, count]) => ({ name, count })),
+    score_distribution: Object.entries(scoreRanges).map(([name, count]) => ({ name, count })),
+    explanations: items,
+    timestamp: new Date().toISOString(),
+  };
+}
 
 export default function ExplanationDashboard() {
   const [search, setSearch] = useState('');
@@ -63,15 +120,13 @@ export default function ExplanationDashboard() {
       if (filters.providerId !== '0') params.append('provider_id', filters.providerId);
       if (filters.decision !== 'All') params.append('decision', filters.decision);
       if (filters.status !== 'All') params.append('status', filters.status);
+      params.append('limit', '200');
 
-      const [overviewRes, listRes] = await Promise.all([
-        api.get('/xai/overview'),
-        api.get(`/xai/explanations?${params.toString()}`),
-      ]);
-
-      setOverview(overviewRes.data || {});
+      const listRes = await api.get(`/xai/explanations?${params.toString()}`);
 
       const items = listRes.data || [];
+      setOverview(buildOverview(items));
+
       // Keep selected item updated or pick first
       if (items.length > 0) {
         setSelectedExp((prev) => {
@@ -92,7 +147,7 @@ export default function ExplanationDashboard() {
   // Polling: 2.5s
   useEffect(() => {
     fetchData();
-    pollRef.current = setInterval(fetchData, 2500);
+    pollRef.current = setInterval(() => { if (document.visibilityState === 'visible') fetchData(); }, 2500);
     return () => clearInterval(pollRef.current);
   }, [fetchData]);
 
@@ -114,34 +169,21 @@ export default function ExplanationDashboard() {
   const filteredExplanations = overview.explanations || [];
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* ── Page Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <BrainCircuit className="h-6 w-6 text-indigo-400" />
-            Explainable AI (XAI) Dashboard
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Visual decision factor analysis, compatibility scoring, and feature attribution timeline
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {/* Live Indicator */}
-          <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-500/10 border border-green-500/30 rounded-lg text-xs font-semibold text-green-400">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            Live Auto-Refresh (2.5s)
+    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="AI Insights"
+        live
+        title="Explainable Decisions"
+        description="Inspect how the feasibility engine scores pairings — factor attribution, confidence and decision distribution."
+        actions={
+          <div className="flex items-center gap-2.5">
+            <StatusBadge tone="success" label="Auto-refresh 2.5s" pulse />
+            <button onClick={fetchData} className="btn-glass">
+              <RefreshCw className="h-3.5 w-3.5" /> Refresh
+            </button>
           </div>
-
-          <button
-            onClick={fetchData}
-            className="flex items-center gap-2 px-3.5 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 rounded-lg text-xs font-medium transition-colors"
-          >
-            <RefreshCw className="h-3.5 w-3.5" /> Refresh
-          </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Search & Filter Controls Bar ──────────────────────────────────────── */}
       <ExplanationFilters
@@ -161,24 +203,19 @@ export default function ExplanationDashboard() {
         <>
           {/* ── Top Summary Cards ───────────────────────────────────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
-              <p className="text-xs text-gray-400 font-medium">Total Explanations</p>
-              <p className="text-2xl font-bold text-white font-mono mt-1">{overview.total_explanations || 0}</p>
-            </div>
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
-              <p className="text-xs text-gray-400 font-medium">Avg Compatibility Score</p>
-              <p className="text-2xl font-bold text-cyan-400 font-mono mt-1">{overview.avg_compatibility_score || 0}%</p>
-            </div>
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
-              <p className="text-xs text-gray-400 font-medium">Avg Model Confidence</p>
-              <p className="text-2xl font-bold text-amber-400 font-mono mt-1">{overview.avg_confidence_score || 0}%</p>
-            </div>
-            <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm">
-              <p className="text-xs text-gray-400 font-medium">Primary Decision Outcome</p>
-              <p className="text-sm font-bold text-indigo-400 mt-2 truncate" title={overview.most_common_decision}>
-                {overview.most_common_decision || 'N/A'}
-              </p>
-            </div>
+            {[
+              { label: 'Total Explanations', value: overview.total_explanations || 0, mono: true },
+              { label: 'Avg Compatibility', value: `${overview.avg_compatibility_score || 0}%`, accent: 'text-brand-secondary' },
+              { label: 'Avg Model Confidence', value: `${overview.avg_confidence_score || 0}%`, accent: 'text-brand-warning' },
+              { label: 'Primary Outcome', value: overview.most_common_decision || 'N/A', small: true },
+            ].map((card) => (
+              <div key={card.label} className="glass-card rounded-[22px] p-5 relative overflow-hidden">
+                <p className="section-label">{card.label}</p>
+                <p className={`mt-2.5 text-[26px] font-display font-semibold tracking-tight ${card.small ? 'text-[18px] mt-3.5' : card.accent || 'text-white'} ${card.mono ? 'tabular-nums' : 'break-words'}`}>
+                  {card.value}
+                </p>
+              </div>
+            ))}
           </div>
 
           {/* ── Visualizations Section (3 Column Grid) ───────────────────────── */}

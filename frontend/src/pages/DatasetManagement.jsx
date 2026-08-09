@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Upload, FileText, Trash2, Database, Download,
+  Upload, Trash2, Database,
   Play, Square, RotateCcw, Loader2, Activity, Clock,
   CheckCircle2, ListOrdered, Zap, MapPin, Package, Bike, Utensils
 } from 'lucide-react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+
+import PageHeader from '../components/ui/PageHeader';
 
 // ─── Type metadata ────────────────────────────────────────────────────────────
 
@@ -181,7 +183,7 @@ export default function DatasetManagement() {
   useEffect(() => {
     fetchSimState(); // initial fetch on mount
 
-    pollRef.current = setInterval(fetchSimState, 3000);
+    pollRef.current = setInterval(() => { if (document.visibilityState === 'visible') fetchSimState(); }, 3000);
     return () => clearInterval(pollRef.current);
   }, [fetchSimState]);
 
@@ -231,11 +233,12 @@ export default function DatasetManagement() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Dataset Management</h1>
-        <p className="text-gray-400 mt-1">Upload datasets and run the live simulation engine</p>
-      </div>
+    <div className="pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="System"
+        title="Datasets"
+        description="Upload reference data — vehicles, requests, restaurants, parcels, traffic and road networks."
+      />
 
       {/* ═══════════════════════════════════════════════════════════
           LIVE SIMULATION SECTION

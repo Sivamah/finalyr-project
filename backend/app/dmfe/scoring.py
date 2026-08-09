@@ -27,7 +27,12 @@ from app.dmfe.score_engine import (
     time_window_score,
     priority_score as _priority_score,
     vehicle_capacity_score as _capacity_score,
+    fuel_score,
+    co2_score,
+    cost_score,
+    delay_penalty_score,
 )
+from app.dmfe.score_engine import PRIORITY_VALUES
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configurable default weights (w1..w5) — must sum to 1.0
@@ -144,8 +149,7 @@ def vehicle_capacity_score(
 # ─────────────────────────────────────────────────────────────────────────────
 # 5. Priority Score
 # ─────────────────────────────────────────────────────────────────────────────
-
-PRIORITY_VALUES: Dict[str, float] = {"Low": 0.2, "Medium": 0.6, "High": 1.0}
+# PRIORITY_VALUES is imported from app.dmfe.score_engine (single source).
 
 
 def priority_score(priorities: List[str]) -> Tuple[float, str]:
@@ -183,3 +187,65 @@ def weighted_compatibility_score(
         for k in FACTOR_KEYS
     )
     return round((cs / total_w) * 100.0, 1)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Unified Decision Score (Phase 5)
+# ─────────────────────────────────────────────────────────────────────────────
+
+UNIFIED_WEIGHTS: Dict[str, float] = {
+    "compatibility": 0.40,  # Batch Compatibility Score (CS) contribution
+    "driver": 0.30,         # Driver Feasibility Score contribution
+    "cost": 0.10,
+    "fuel": 0.05,
+    "co2": 0.05,
+    "delay": 0.10,
+}
+
+UNIFIED_FACTOR_KEYS: Tuple[str, ...] = tuple(UNIFIED_WEIGHTS.keys())
+
+
+def unified_decision_score(
+    weights: Dict[str, float],
+    compatibility_pct: float,
+    driver_score: float,
+    cost: float,
+    fuel_l: float,
+    co2_kg: float,
+    delay_min: float,
+    max_cost: float = 50.0,
+    max_fuel: float = 10.0,
+    max_co2: float = 25.0,
+    max_delay: float = 20.0,
+) -> Tuple[float, Dict[str, float]]:
+    """
+    Computes the final unified feasibility score combining batch, driver,
+    and normalized penalties for cost, fuel, co2, and delay.
+
+    Returns (unified_score_pct, factor_scores)
+    """
+    cs_norm = compatibility_pct / 100.0 if compatibility_pct > 0 else 0.0
+    f_cost, _ = cost_score(cost, max_cost)
+    f_fuel, _ = fuel_score(fuel_l, max_fuel)
+    f_co2, _ = co2_score(co2_kg, max_co2)
+    f_delay, _ = delay_penalty_score(delay_min, max_delay)
+
+    factor_scores = {
+        "compatibility": round(cs_norm, 4),
+        "driver": round(driver_score, 4),
+        "cost": f_cost,
+        "fuel": f_fuel,
+        "co2": f_co2,
+        "delay": f_delay,
+    }
+
+    total_w = sum(weights.get(k, 0.0) for k in UNIFIED_FACTOR_KEYS)
+    if total_w <= 0:
+        return 0.0, factor_scores
+
+    score_val = sum(
+        weights.get(k, 0.0) * factor_scores.get(k, 0.0)
+        for k in UNIFIED_FACTOR_KEYS
+    )
+
+    return round((score_val / total_w) * 100.0, 1), factor_scores

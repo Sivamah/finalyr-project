@@ -28,6 +28,27 @@ async def lifespan(app: FastAPI):
             db.commit()
     finally:
         db.close()
+
+    try:
+        from app.services.driver_service import driver_service
+        driver_service.seed_initial_data_if_needed(db)
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("driver/vehicle seed failed")
+
+    # Release trips stuck in Planned/Active (e.g. from a previous server run).
+    # Without this, their drivers/vehicles stay Busy forever and the DMFE
+    # driver-availability gate rejects every batch (Gate E starvation).
+    try:
+        from app.dmfe.driver_selection import complete_stale_trips
+        db = SessionLocal()
+        try:
+            complete_stale_trips(db, max_age_min=30.0)
+        finally:
+            db.close()
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("stale-trip cleanup failed: %s", exc)
     yield
 
 app = FastAPI(

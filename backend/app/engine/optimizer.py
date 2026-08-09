@@ -1,5 +1,3 @@
-import json
-import math
 import random
 from typing import List, Dict, Any, Optional
 from ortools.constraint_solver import routing_enums_pb2
@@ -22,8 +20,9 @@ class AIOrchestrator:
             .all()
         )
         requests = []
+        providers = self._provider_map()
         for r in pending:
-            provider = self.db.query(Provider).filter(Provider.id == r.provider_id).first()
+            provider = providers.get(r.provider_id)
             requests.append({
                 "id": r.id,
                 "type": r.request_type,
@@ -37,10 +36,16 @@ class AIOrchestrator:
             })
         return requests
 
+    def _provider_map(self) -> Dict[int, Optional[Provider]]:
+        """One query for all providers instead of one per request/vehicle."""
+        rows = self.db.query(Provider).all()
+        return {p.id: p for p in rows}
+
     def _build_vehicle_configs(self) -> List[Dict[str, Any]]:
         configs = []
+        providers = self._provider_map()
         for v in self.vehicles:
-            provider = self.db.query(Provider).filter(Provider.id == v.provider_id).first()
+            provider = providers.get(v.provider_id)
             configs.append({
                 "id": v.id,
                 "name": v.name,
@@ -232,20 +237,22 @@ class AIOrchestrator:
             })
 
             for r in batch_reqs:
-                sim_req = self.db.query(SimulationRequest).filter(
-                    SimulationRequest.id == r["id"]
-                ).first()
-                if sim_req:
-                    sim_req.status = "Optimized"
+                self._mark_optimized(r["id"])
 
         self.db.commit()
         return results
 
+    def _mark_optimized(self, request_id: int) -> None:
+        self.db.query(SimulationRequest).filter(
+            SimulationRequest.id == request_id
+        ).update({"status": "Optimized"}, synchronize_session=False)
+
     def _generate_simulated_results(self) -> List[Dict]:
         results = []
+        providers = self._provider_map()
         for i in range(min(len(self.vehicles), 5)):
             v = self.vehicles[i] if i < len(self.vehicles) else self.vehicles[0]
-            provider = self.db.query(Provider).filter(Provider.id == v.provider_id).first()
+            provider = providers.get(v.provider_id)
             pname = provider.name if provider else "Unknown"
             dist_km = random.uniform(3.0, 15.0)
             direct_km = dist_km * random.uniform(1.2, 1.8)

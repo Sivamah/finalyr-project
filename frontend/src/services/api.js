@@ -13,13 +13,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401/403 globally — remove stale token
+// Handle 401/403 globally — drop stale token
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('access_token');
-      window.location.href = '/login';
+      // Avoid a full page reload while already on /login: it would wipe the
+      // error toast ("Incorrect email or password") and make login look dead.
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

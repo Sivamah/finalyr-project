@@ -29,11 +29,10 @@ real-world demand clustering at busy junctions.
 """
 
 import random
-import math
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from app.db.models import Provider, SimulationRequest, Vehicle
+from app.db.models import Provider, SimulationRequest
 from app.engine.distance import haversine
 
 # ---------------------------------------------------------------------------
@@ -163,6 +162,8 @@ def generate_simulation_requests(
     db: Session,
     request_types: Optional[Dict[str, float]] = None,
     provider_ids: Optional[List[int]] = None,
+    same_cluster: bool = False,
+    time_window_min: float = 8.0,
 ) -> List[SimulationRequest]:
     """
     Generate realistic simulation requests with rich metadata.
@@ -173,6 +174,11 @@ def generate_simulation_requests(
     - 55% are city-wide random requests (typically not batchable).
     - Each cluster burst generates 2-3 requests within a narrow 0-8 min window
       so they pass the 20-min time compatibility gate.
+
+    `same_cluster=True` forces every request in this call into ONE demand
+    cluster (realistic surge bursts at busy junctions such as Gandhipuram,
+    RS Puram or Peelamedu).  `time_window_min` controls the max timestamp
+    spread inside a burst.
     """
     if provider_ids:
         providers = db.query(Provider).filter(
@@ -204,6 +210,10 @@ def generate_simulation_requests(
     # are naturally close to each other.
     base_time = datetime.utcnow() - timedelta(minutes=random.randint(0, 5))
 
+    # Forced single-cluster burst: all requests share one pickup cluster and
+    # staggered timestamps inside the configured window.
+    burst_cluster = random.choice(DEMAND_CLUSTERS) if same_cluster else None
+
     created = []
 
     for i in range(count):
@@ -226,13 +236,23 @@ def generate_simulation_requests(
         # ── Choose pickup / drop strategy ─────────────────────────────────────
         # 45% chance: use demand cluster (batchable)
         # 55% chance: city-wide random (typically not batchable)
-        use_cluster = random.random() < 0.45
+        use_cluster = random.random() < 0.45 or same_cluster
 
         if use_cluster:
-            pickup_name, pickup_lat, pickup_lng = _pick_cluster_pickup()
-            drop_name, drop_lat, drop_lng = _pick_cluster_destination(pickup_name)
+            if burst_cluster is not None:
+                pickup_name = random.choice(burst_cluster["areas"])
+                base_lat, base_lng = COIMBATORE_AREAS[pickup_name]
+                pickup_lat, pickup_lng = _jitter(base_lat, 0.004), _jitter(base_lng, 0.004)
+                drop_name = random.choice(burst_cluster["destinations"])
+                base_lat, base_lng = COIMBATORE_AREAS[drop_name]
+                drop_lat, drop_lng = _jitter(base_lat, 0.005), _jitter(base_lng, 0.005)
+            else:
+                pickup_name, pickup_lat, pickup_lng = _pick_cluster_pickup()
+                drop_name, drop_lat, drop_lng = _pick_cluster_destination(pickup_name)
             # FIX BUG 1: cluster requests arrive within 0–8 min of base_time
-            request_time = base_time + timedelta(seconds=random.randint(0, 480))
+            request_time = base_time + timedelta(
+                seconds=random.randint(0, max(60, int(time_window_min * 60)))
+            )
         else:
             # City-wide random — different areas, wider time spread
             areas = list(COIMBATORE_AREAS.items())

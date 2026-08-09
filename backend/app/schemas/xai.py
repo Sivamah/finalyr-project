@@ -1,6 +1,5 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 from pydantic import BaseModel
-from datetime import datetime
 
 
 class XAIFactors(BaseModel):
@@ -10,6 +9,10 @@ class XAIFactors(BaseModel):
     vehicle_capacity_score: float = 95.0
     priority_score: float = 80.0
     overall_compatibility_score: float = 89.5
+    pickup_distance_km: float = 0.0
+    time_difference_min: float = 0.0
+    route_similarity_pct: float = 0.0
+    estimated_delay_min: float = 0.0
 
 
 class XAITimelineItem(BaseModel):
@@ -36,6 +39,12 @@ class XAIExplanationItem(BaseModel):
     factors: XAIFactors
     timeline: List[XAITimelineItem] = []
     created_at: str
+    batched_with_request_ids: List[int] = []
+    fuel_saved_l: float = 0.0
+    co2_saved_kg: float = 0.0
+    distance_saved_km: float = 0.0
+    driver_profit_inr: float = 0.0
+    trip_code: Optional[str] = None
 
     class Config:
         from_attributes = True

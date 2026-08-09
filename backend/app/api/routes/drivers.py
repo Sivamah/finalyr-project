@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status
 from app.api.deps import SessionDep, CurrentUser
 from app.db.models import Driver, Vehicle, DriverAssignmentHistory

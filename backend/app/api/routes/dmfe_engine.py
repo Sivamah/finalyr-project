@@ -19,21 +19,27 @@ Endpoints:
 All routes require an Admin bearer token (same as the rest of the API).
 """
 
-import json
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.api.deps import SessionDep, CurrentUser
-from app.db.models import DriverAssignment, SimulationRequest, Trip
+from app.core.json_utils import json_loads
+from app.db.models import SimulationRequest
 from app.dmfe.batch_generator import BatchGenerator
-from app.dmfe.compatibility import CompatibilityCalculator
-from app.dmfe.decision_engine import _get_threshold
-from app.dmfe.driver_selection import dispatch_trip
+from app.dmfe.compatibility import CompatibilityCalculator, _get_threshold
+from app.dmfe.driver_selection import complete_trip, complete_stale_trips, dispatch_trip
 from app.dmfe.models import DMFEBatch
 from app.dmfe.optimizer import route_optimizer
-from app.dmfe.pipeline import PipelineRunner, pipeline_runner
+from app.dmfe.pipeline import pipeline_runner
+from app.dmfe.serializers import (
+    assignment_to_dict,
+    candidate_batch_dict,
+    compatibility_score_response,
+    request_to_dict,
+    trip_to_dict,
+)
 
 router = APIRouter(prefix="/api/dmfe", tags=["DMFE Engine"])
 
@@ -68,72 +74,7 @@ class DMFERunRequest(BaseModel):
 
 
 # ── Serializers ─────────────────────────────────────────────────────────────
-
-def _request_to_dict(r: SimulationRequest) -> Dict[str, Any]:
-    return {
-        "id": r.id,
-        "request_type": r.request_type,
-        "pickup_address": r.pickup_address,
-        "drop_address": r.drop_address,
-        "pickup_lat": r.pickup_lat,
-        "pickup_lng": r.pickup_lng,
-        "drop_lat": r.drop_lat,
-        "drop_lng": r.drop_lng,
-        "demand": r.demand,
-        "weight_kg": r.weight_kg,
-        "priority": r.priority,
-        "vehicle_type": r.vehicle_type,
-        "estimated_distance_km": r.estimated_distance_km,
-        "status": r.status,
-        "created_at": r.created_at.strftime("%Y-%m-%d %I:%M %p")
-                     if r.created_at else "",
-    }
-
-
-def _trip_to_dict(t: Trip) -> Dict[str, Any]:
-    return {
-        "id": t.id,
-        "trip_code": t.trip_code,
-        "batch_id": t.batch_id,
-        "driver_id": t.driver_id,
-        "vehicle_id": t.vehicle_id,
-        "request_ids": json.loads(t.request_ids_json or "[]"),
-        "is_shared": t.is_shared,
-        "status": t.status,
-        "stop_order": json.loads(t.stop_order_json or "[]"),
-        "total_distance_km": t.total_distance_km,
-        "total_duration_min": t.total_duration_min,
-        "eta_min": t.eta_min,
-        "fuel_l": t.fuel_l,
-        "utilization_pct": t.utilization_pct,
-        "max_delay_min": t.max_delay_min,
-        "matrix_source": t.matrix_source,
-        "estimated_cost": t.estimated_cost,
-        "distance_saved_km": t.distance_saved_km,
-        "fuel_saved_l": t.fuel_saved_l,
-        "co2_saved_kg": t.co2_saved_kg,
-        "optimization_score": t.optimization_score,
-        "driver_name": t.driver.name if t.driver else None,
-        "vehicle_name": t.vehicle.name if t.vehicle else None,
-        "created_at": t.created_at.strftime("%Y-%m-%d %I:%M %p")
-                     if t.created_at else "",
-    }
-
-
-def _assignment_to_dict(a: DriverAssignment) -> Dict[str, Any]:
-    return {
-        "id": a.id,
-        "trip_id": a.trip_id,
-        "trip_code": a.trip.trip_code if a.trip else None,
-        "driver_id": a.driver_id,
-        "vehicle_id": a.vehicle_id,
-        "driver_name": a.driver_name,
-        "vehicle_name": a.vehicle_name,
-        "assignment_type": a.assignment_type,
-        "status": a.status,
-        "assigned_at": a.assigned_at.strftime("%Y-%m-%d %I:%M %p")
-                       if a.assigned_at else "",
-    }
+# Shared payload shapes live in app.dmfe.serializers (single source of truth).
 
 
 def _load_requests(db, request_ids: List[int]) -> List[SimulationRequest]:
@@ -164,21 +105,59 @@ def compatibility_score(
     """
     Compute the Phase 9 weighted Compatibility Score (5 factors) for a
     group of 2+ requests, with the full factor breakdown.
+
+    A-DMFE (adaptive mode): the response additionally carries the context
+    profile, adaptive weights, Batch Quality Score, decision confidence
+    and factor attribution.  All original keys are unchanged.
     """
     requests = _load_requests(db, body.request_ids)
     result = calculator.compute(requests, db)
     threshold = _get_threshold(db)
+    return compatibility_score_response(result, threshold)
+
+
+@router.get("/context")
+def get_adaptive_context(
+    db: SessionDep,
+    current_user: CurrentUser,
+):
+    """
+    A-DMFE context snapshot: current ContextProfile, adaptive weights,
+    effective thresholds and the learning-state summary.  Additive endpoint
+    — no existing route is modified.
+    """
+    from app.dmfe.adaptive.context import ContextAwarenessEngine
+    from app.dmfe.adaptive.weights import AdaptiveWeightGenerator
+    from app.dmfe.adaptive.decision import (
+        effective_threshold,
+        bqs_threshold,
+    )
+    from app.dmfe.adaptive.learning import LearningEngine
+    from app.dmfe.compatibility import resolve_mode
+
+    pending: List[SimulationRequest] = (
+        db.query(SimulationRequest)
+        .filter(SimulationRequest.status == "Pending")
+        .limit(500)
+        .all()
+    )
+    mode = resolve_mode(db)
+    context = ContextAwarenessEngine().build(db, pending)
+    learning = LearningEngine.load_state(db)
+    weights = AdaptiveWeightGenerator(mode=mode).generate(
+        db, context, LearningEngine.weight_corrections(db)
+    )
+    base_threshold = _get_threshold(db)
+
     return {
-        "request_ids": body.request_ids,
-        "compatibility_score": result.compatibility_score,
-        "factor_scores": result.factor_scores,
-        "factor_details": result.factor_details,
-        "reasons": result.reasons,
-        "estimated_delay_min": result.estimated_delay_min,
-        "weights_used": result.weights_used,
-        "threshold": threshold,
-        "decision": "Compatible" if result.compatibility_score >= threshold
-                    else "Individual",
+        "mode": mode,
+        "context_profile": context.to_dict(),
+        "adaptive_weights": {k: round(v, 4) for k, v in weights.items()},
+        "effective_threshold": effective_threshold(base_threshold, context),
+        "base_threshold": base_threshold,
+        "bqs_threshold": bqs_threshold(context),
+        "learning": LearningEngine.summary(db),
+        "pending_count": len(pending),
     }
 
 
@@ -208,27 +187,8 @@ def create_batches(
     for cg in feasible:
         ids = [r.id for r in cg.requests]
         covered.update(ids)
-        batches.append({
-            "batch_code": f"BATCH-{ids[0]:04d}-{ids[-1]:04d}",
-            "request_ids": ids,
-            "requests_summary": [
-                {
-                    "id": r.id,
-                    "request_type": r.request_type,
-                    "pickup_address": r.pickup_address,
-                    "drop_address": r.drop_address,
-                    "priority": r.priority,
-                    "demand": r.demand,
-                }
-                for r in cg.requests
-            ],
-            "compatibility_score": cg.result.compatibility_score,
-            "factor_scores": cg.result.factor_scores,
-            "factor_details": cg.result.factor_details,
-            "reasons": cg.result.reasons,
-            "estimated_delay_min": cg.result.estimated_delay_min,
-            "weights_used": cg.result.weights_used,
-        })
+        batch_code = f"BATCH-{ids[0]:04d}-{ids[-1]:04d}"
+        batches.append(candidate_batch_dict(cg, batch_code))
 
     return {
         "threshold": threshold,
@@ -294,7 +254,7 @@ def assign_driver(
         batch = db.query(DMFEBatch).filter(DMFEBatch.id == body.batch_id).first()
         if batch is None:
             raise HTTPException(status_code=404, detail="DMFE batch not found")
-        request_ids = json.loads(batch.request_ids_json or "[]")
+        request_ids = json_loads(batch.request_ids_json, [])
         requests = _load_requests(db, request_ids)
         trip_key = batch.batch_code
     elif body.request_ids:
@@ -317,8 +277,8 @@ def assign_driver(
     trip = outcome["trip"]
     assignment = outcome["assignment"]
     return {
-        "trip": _trip_to_dict(trip),
-        "assignment": _assignment_to_dict(assignment)
+        "trip": trip_to_dict(trip),
+        "assignment": assignment_to_dict(assignment)
                       if assignment else None,
         "driver": {
             "id": outcome["driver"].id,
@@ -334,7 +294,7 @@ def assign_driver(
             "mileage_kmpl": outcome["vehicle"].mileage_kmpl,
         },
         "candidate": outcome["candidate"].to_dict(),
-        "requests": [_request_to_dict(r) for r in outcome["requests"]],
+        "requests": [request_to_dict(r) for r in outcome["requests"]],
         "route": outcome["route_dict"],
     }
 
@@ -372,7 +332,7 @@ def get_queue(
         .limit(limit)
         .all()
     )
-    return [_request_to_dict(r) for r in pending]
+    return [request_to_dict(r) for r in pending]
 
 
 @router.get("/trips")
@@ -387,7 +347,7 @@ def list_trips(
     if status:
         q = q.filter(Trip.status == status)
     trips = q.order_by(Trip.created_at.desc()).limit(limit).all()
-    return [_trip_to_dict(t) for t in trips]
+    return [trip_to_dict(t) for t in trips]
 
 
 @router.get("/trips/{trip_id}")
@@ -396,7 +356,38 @@ def get_trip(trip_id: int, db: SessionDep, current_user: CurrentUser):
     trip = db.query(Trip).filter(Trip.id == trip_id).first()
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
-    return _trip_to_dict(trip)
+    return trip_to_dict(trip)
+
+
+@router.post("/trips/{trip_id}/complete")
+def complete_trip_endpoint(
+    trip_id: int,
+    db: SessionDep,
+    current_user: CurrentUser,
+):
+    """
+    Complete a dispatched trip and release its driver/vehicle.
+
+    This is the lifecycle transition that returns capacity to the fleet —
+    without it, completed trips permanently hold drivers/vehicles Busy and
+    the DMFE driver-availability gate rejects every subsequent batch.
+    """
+    try:
+        trip = complete_trip(db, trip_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return {"trip": trip_to_dict(trip)}
+
+
+@router.post("/trips/complete-stale")
+def complete_stale_trips_endpoint(
+    db: SessionDep,
+    current_user: CurrentUser,
+    max_age_min: int = 45,
+):
+    """Release trips stuck in Planned/Active for more than max_age_min."""
+    released = complete_stale_trips(db, max_age_min=float(max_age_min))
+    return {"released": released}
 
 
 @router.get("/assignments")
@@ -411,4 +402,4 @@ def list_assignments(
     if status:
         q = q.filter(DriverAssignment.status == status)
     rows = q.order_by(DriverAssignment.assigned_at.desc()).limit(limit).all()
-    return [_assignment_to_dict(a) for a in rows]
+    return [assignment_to_dict(a) for a in rows]

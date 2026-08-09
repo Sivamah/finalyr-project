@@ -3,6 +3,8 @@ import { Cpu, Play, List, RefreshCw, Lightbulb, TrendingUp, DollarSign, Clock, L
 import api from '../services/api';
 import toast from 'react-hot-toast';
 
+import PageHeader from '../components/ui/PageHeader';
+
 export default function AIDashboard() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,22 +42,23 @@ export default function AIDashboard() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">AI Orchestration Engine</h1>
-          <p className="text-gray-400 mt-1">Dynamic Multi-Service Feasibility Engine (DMFE)</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchResults} className="flex items-center gap-2 px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-300 font-medium transition-colors text-sm">
-            <RefreshCw className="h-4 w-4" /> Refresh
-          </button>
-          <button onClick={runOptimization} disabled={running} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-white font-medium transition-colors disabled:opacity-50">
-            {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            {running ? 'Running...' : 'Run Optimization'}
-          </button>
-        </div>
-      </div>
+    <div className="pb-10 max-w-[1500px] mx-auto">
+      <PageHeader
+        eyebrow="Intelligence"
+        title="Orchestration Engine"
+        description="Dynamic Multi-Service Feasibility Engine — batch requests by compatibility and let OR-Tools route them."
+        actions={
+          <div className="flex gap-2.5">
+            <button onClick={fetchResults} className="btn-glass">
+              <RefreshCw className="h-4 w-4" /> Refresh
+            </button>
+            <button onClick={runOptimization} disabled={running} className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed">
+              {running ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+              {running ? 'Running…' : 'Run Optimization'}
+            </button>
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 mb-6">
         <div className="lg:col-span-3 bg-gray-800 border border-gray-700 rounded-xl p-6">
