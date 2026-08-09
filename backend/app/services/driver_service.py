@@ -45,9 +45,10 @@ class DriverService:
         DMFE availability gate or cause SQLite write-lock contention.
         """
         try:
-            if self._is_seeded(db):
-                return
             from app.db.models import SystemConfig
+            driver_count = db.query(Driver).count()
+            if self._is_seeded(db) and driver_count > 0:
+                return
 
             providers = db.query(Provider).all()
             if not providers:
