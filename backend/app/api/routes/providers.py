@@ -207,9 +207,10 @@ def seed_providers(db: SessionDep, current_user: CurrentUser):
 
     created = 0
     for seed in SEED_PROVIDERS:
-        vehicles_data = seed.pop("vehicles")
+        vehicles_data = seed.get("vehicles", [])
+        provider_data = {k: v for k, v in seed.items() if k != "vehicles"}
         provider = Provider(
-            **seed,
+            **provider_data,
             operating_area="Coimbatore",
             api_status="Simulated",
             simulation_mode=True,
