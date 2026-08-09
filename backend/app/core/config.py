@@ -40,7 +40,7 @@ class Settings(BaseSettings):
                 f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
                 f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
             )
-        return "sqlite:///./dmfe_dev.db"
+        return f"sqlite:///{BACKEND_DIR / 'dmfe_dev.db'}"
 
     # Absolute path, independent of the CWD the backend is started from.
     # A relative ".env" breaks SECRET_KEY/DATABASE_URL/ALLOWED_ORIGINS
