@@ -124,7 +124,6 @@ class CompatibilityMatrix:
         max_weight = self.rules.get("max_weight_kg", 100.0)
 
         buckets = self._bucketize(self.requests, max_radius)
-        band = max(max_radius / 111.0, 1e-6)
         bucket_keys = sorted(buckets.keys())
 
         for bi, key in enumerate(bucket_keys):

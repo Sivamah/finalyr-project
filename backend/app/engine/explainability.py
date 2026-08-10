@@ -1,6 +1,4 @@
-import json
 from typing import List, Dict, Any
-from sqlalchemy.orm import Session
 from app.db.models import OptimizationResult
 from .distance import haversine
 

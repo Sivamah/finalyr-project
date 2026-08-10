@@ -32,7 +32,6 @@ from app.dmfe.score_engine import (
     cost_score,
     delay_penalty_score,
 )
-from app.dmfe.score_engine import PRIORITY_VALUES
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Configurable default weights (w1..w5) — must sum to 1.0

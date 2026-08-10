@@ -31,7 +31,6 @@ from sqlalchemy.orm import Session
 
 from app.db.models import SimulationRequest
 from app.dmfe.compatibility import CompatibilityCalculator
-from app.dmfe.scoring import FACTOR_KEYS
 
 logger = logging.getLogger(__name__)
 

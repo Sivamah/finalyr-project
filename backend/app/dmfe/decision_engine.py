@@ -184,6 +184,7 @@ def _driver_feasibility(
     selector: Optional[DriverSelector] = None,
     driver_pool: Optional[DriverPool] = None,
     selector_rules: Optional[Dict[str, float]] = None,
+    availability_cache: Optional[Dict[int, Tuple[bool, str]]] = None,
 ) -> Tuple[bool, str, Optional[DriverCandidate]]:
     """
     Gate E — exact driver feasibility for THIS group.
@@ -211,7 +212,6 @@ def _driver_feasibility(
             db, total_demand, cache=availability_cache
         )
         return ok, reason, None
-
     # Unseeded system — the gate is skipped so a missing seed cannot veto
     # compatibility-score decisions (legacy semantic preserved).
     if driver_pool.total_driver_count == 0:

@@ -134,7 +134,6 @@ class PlaybackService:
         """Snapshot current database simulation requests and generate replay frames timeline."""
         requests = db.query(SimulationRequest).all()
         providers = db.query(Provider).all()
-        provider_map = {p.id: p.name for p in providers}
 
         total_reqs = len(requests)
         completed_reqs = sum(1 for r in requests if r.status == "Completed")
@@ -255,7 +254,7 @@ class PlaybackService:
 
         if not items:
             # Seed synthetic initial saved run for rich baseline display
-            dummy = self.save_current_simulation_snapshot(db, "Baseline Peak Hour Run", "Peak Hour Traffic")
+            self.save_current_simulation_snapshot(db, "Baseline Peak Hour Run", "Peak Hour Traffic")
             items = db.query(SavedSimulation).order_by(SavedSimulation.created_at.desc()).limit(limit).all()
 
         result = []

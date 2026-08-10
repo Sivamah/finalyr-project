@@ -93,7 +93,6 @@ def _bucketized_pairs(
     every pair still passes the exact haversine radius gate.
     """
     buckets = CompatibilityMatrix._bucketize(pending, max_radius_km)
-    band = max(max_radius_km / 111.0, 1e-6)
     keys = sorted(buckets.keys())
     for bi, key in enumerate(keys):
         for idx in buckets[key]:

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException
 from app.api.deps import SessionDep, CurrentUser
 from app.db.models import Driver, Vehicle, DriverAssignmentHistory
 from app.schemas.driver import (

@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import SessionDep, CurrentUser
 from app.core.json_utils import json_loads
-from app.db.models import SimulationRequest
+from app.db.models import DriverAssignment, SimulationRequest, Trip
 from app.dmfe.batch_generator import BatchGenerator
 from app.dmfe.compatibility import CompatibilityCalculator, _get_threshold
 from app.dmfe.driver_selection import complete_trip, complete_stale_trips, dispatch_trip
@@ -143,7 +143,6 @@ def get_adaptive_context(
     )
     mode = resolve_mode(db)
     context = ContextAwarenessEngine().build(db, pending)
-    learning = LearningEngine.load_state(db)
     weights = AdaptiveWeightGenerator(mode=mode).generate(
         db, context, LearningEngine.weight_corrections(db)
     )
