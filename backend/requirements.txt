@@ -16,4 +16,7 @@ slowapi>=0.1.9
 # Testing
 pytest>=8.0.0
 httpx>=0.27.0
+# Used by e2e_test.py and scripts/verify_fix.py, which the README lists as
+# verification steps — a fresh clone could not run them without this.
+requests>=2.31.0
 

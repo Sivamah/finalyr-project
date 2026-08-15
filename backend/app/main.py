@@ -26,15 +26,18 @@ async def lifespan(app: FastAPI):
             )
             db.add(admin)
             db.commit()
+
+        # Must run while the session is still open. This used to sit after
+        # the finally-block below, so it ran on a closed session — SQLAlchemy
+        # silently reopened a connection that was then never released.
+        try:
+            from app.services.driver_service import driver_service
+            driver_service.seed_initial_data_if_needed(db)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("driver/vehicle seed failed")
     finally:
         db.close()
-
-    try:
-        from app.services.driver_service import driver_service
-        driver_service.seed_initial_data_if_needed(db)
-    except Exception:
-        import logging
-        logging.getLogger(__name__).exception("driver/vehicle seed failed")
 
     # Release trips stuck in Planned/Active (e.g. from a previous server run).
     # Without this, their drivers/vehicles stay Busy forever and the DMFE

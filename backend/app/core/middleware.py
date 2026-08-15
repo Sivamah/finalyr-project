@@ -10,6 +10,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("aiorch")
 
 
+# Swagger UI / ReDoc load their JS and CSS from cdn.jsdelivr.net, which
+# "default-src 'self'" blocks — the docs pages render blank. Every other
+# response still gets the full CSP.
+_CSP_EXEMPT_PATHS = ("/api/docs", "/api/redoc", "/api/openapi.json")
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response: Response = await call_next(request)
@@ -22,7 +28,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Strict Transport Security (HSTS)
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         # Content Security Policy (Basic API restriction)
-        response.headers["Content-Security-Policy"] = "default-src 'self'"
+        if not request.url.path.startswith(_CSP_EXEMPT_PATHS):
+            response.headers["Content-Security-Policy"] = "default-src 'self'"
         return response
 
 

@@ -198,7 +198,14 @@ class PipelineRunner:
                     threshold, ContextAwarenessEngine().build(db, pending)
                 )
             except Exception:
-                pass
+                # Only affects the threshold reported in the run log — the
+                # value actually applied is recomputed inside
+                # create_feasible_batches — but a silent pass here made an
+                # adaptive-stack failure invisible in an otherwise normal run.
+                logger.exception(
+                    "A-DMFE context/threshold computation failed; "
+                    "logging the static threshold instead"
+                )
         result = PipelineResult(requests_processed=len(pending))
 
         # ── 1+2. Compatibility + batching (gates A–C) ──────────────────────
@@ -249,17 +256,44 @@ class PipelineRunner:
                     "reason": str(exc),
                 })
                 continue
+            except Exception as exc:
+                # dispatch_trip only documents ValueError, but anything raised
+                # out of the optimizer (e.g. a bad OR-Tools call) used to abort
+                # the whole run and 500 the request, losing every dispatch that
+                # would have followed. Record it loudly and keep going.
+                db.rollback()
+                logger.exception("Shared trip %s failed unexpectedly", batch_code)
+                result.unassigned.append({
+                    "batch_code": batch_code,
+                    "request_ids": [r.id for r in cg.requests],
+                    "kind": "shared",
+                    "reason": f"{type(exc).__name__}: {exc}",
+                })
+                continue
 
             result.shared_trips += 1
             result.assignments_created += 1
             _record_dispatch(batch, outcome)
+            # dispatch_trip() already committed the Trip; commit the dispatch
+            # record with it so a later iteration's db.rollback() cannot
+            # discard it.  Without this the "✓ Dispatched" line and the
+            # details["predicted"] snapshot are lost for every earlier batch
+            # as soon as any subsequent batch fails — and that snapshot is
+            # what keeps the prediction recoverable for the learning engine.
+            db.commit()
             driver_pool.drivers = [d for d in driver_pool.drivers if d.id != outcome["driver"].id]
             driver_pool.vehicles = [v for v in driver_pool.vehicles if v.id != outcome["vehicle"].id]
             result.dispatches.append(self._outcome_to_dict(outcome, batch_code))
 
         # ── 4+5+6. Dispatch individual trips ────────────────────────────────
+        # Only requests actually placed in a dispatched shared trip are
+        # skipped here.  Gate-D rejects ("high_priority_reject") must fall
+        # through to individual dispatch: the module contract above states a
+        # request is never skipped silently, but treating any presence in
+        # covered_ids as "already handled" dropped them from the run
+        # entirely — not dispatched, and absent from result.unassigned.
         for req in pending:
-            if req.id in covered_ids:
+            if covered_ids.get(req.id) == "shared":
                 continue
             try:
                 batch = _persist_batch(
@@ -281,10 +315,23 @@ class PipelineRunner:
                     "reason": str(exc),
                 })
                 continue
+            except Exception as exc:
+                # See the shared-trip loop above.
+                db.rollback()
+                logger.exception("Individual trip %s failed unexpectedly", req.id)
+                result.unassigned.append({
+                    "request_ids": [req.id],
+                    "kind": "individual",
+                    "reason": f"{type(exc).__name__}: {exc}",
+                })
+                continue
 
             result.individual_trips += 1
             result.assignments_created += 1
             _record_dispatch(batch, outcome)
+            # See the shared-trip loop above: commit the dispatch record with
+            # the already-committed Trip so a later rollback cannot drop it.
+            db.commit()
             driver_pool.drivers = [d for d in driver_pool.drivers if d.id != outcome["driver"].id]
             driver_pool.vehicles = [v for v in driver_pool.vehicles if v.id != outcome["vehicle"].id]
             result.dispatches.append(

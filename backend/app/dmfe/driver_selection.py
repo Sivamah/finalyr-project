@@ -869,6 +869,7 @@ def complete_trip(
         logger.warning(
             "A-DMFE outcome ingestion skipped for trip %s (id=%d)",
             trip.trip_code, trip.id,
+            exc_info=True,
         )
 
     if commit:
@@ -882,15 +883,28 @@ def complete_trip(
     return trip
 
 
-def complete_stale_trips(db: Session, max_age_min: float = 45.0) -> int:
+def complete_stale_trips(
+    db: Session,
+    max_age_min: float = 45.0,
+    grace_min: float = 15.0,
+) -> int:
     """
     Release any trip stuck in 'Planned'/'Active' beyond max_age_min.
 
     Called on startup and before pipeline runs so stuck trips can never
     permanently block driver/vehicle availability.
+
+    ``max_age_min`` is a FLOOR, not the whole test: a trip is only stuck once
+    it has also outlived its own planned duration plus ``grace_min``.  The
+    callers pass values as low as 10 min while the optimizer routinely plans
+    20-40 min routes, so a bare wall-clock cutoff force-completed trips that
+    were still running — freeing their driver for re-dispatch mid-trip and
+    writing bogus completion timestamps that the learning engine then ingests
+    as if the route had run to plan.
     """
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_age_min)
-    stale = (
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=max_age_min)
+    candidates = (
         db.query(Trip)
         .filter(
             Trip.status.in_(["Planned", "Active"]),
@@ -898,6 +912,20 @@ def complete_stale_trips(db: Session, max_age_min: float = 45.0) -> int:
         )
         .all()
     )
+
+    stale = []
+    for trip in candidates:
+        created = trip.created_at
+        if created is None:
+            stale.append(trip)          # no timestamp: treat as stuck
+            continue
+        if created.tzinfo is None:      # SQLite returns naive datetimes
+            created = created.replace(tzinfo=timezone.utc)
+        age_min = (now - created).total_seconds() / 60.0
+        planned_min = float(trip.total_duration_min or 0.0)
+        if age_min >= planned_min + grace_min:
+            stale.append(trip)
+
     if not stale:
         return 0
 

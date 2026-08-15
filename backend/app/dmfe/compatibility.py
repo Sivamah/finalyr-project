@@ -105,7 +105,10 @@ def _refit_enabled(db: Session) -> bool:
     try:
         setattr(db, "_dmfe_refit_enabled_cache", value)
     except Exception:
-        pass
+        logger.debug(
+            "Could not cache _dmfe_refit_enabled on session object",
+            exc_info=True,
+        )
     return value
 
 
@@ -272,7 +275,11 @@ def resolve_mode(db: Session) -> str:
                 if mode in ("adaptive", "static"):
                     return mode
         except Exception:
-            pass
+            logger.warning(
+                "Failed to read A-DMFE mode from SystemConfig; "
+                "defaulting to 'adaptive'",
+                exc_info=True,
+            )
         return "adaptive"
 
     return _cached(db, "admfe_mode", _load)

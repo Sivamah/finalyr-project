@@ -11,8 +11,11 @@ from app.core.config import settings
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 def get_db() -> Generator:
+    # Constructed outside the try: if SessionLocal() itself raises, `db` would
+    # be unbound and the finally-block's db.close() would mask the real error
+    # with an UnboundLocalError.
+    db = SessionLocal()
     try:
-        db = SessionLocal()
         yield db
     finally:
         db.close()

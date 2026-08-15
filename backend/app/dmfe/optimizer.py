@@ -377,6 +377,7 @@ class RouteOptimizer:
             matrix_s=m_s,
             source=source,
             trip_key=trip_key,
+            service_sec=int(rules.get("service_time_min", 2.0) * 60.0),
         )
         logger.info(
             "Optimized trip %s: %d stops, %.2f km, %.1f min, source=%s",
@@ -735,8 +736,17 @@ class RouteOptimizer:
                             + matrix_s[2 * i + 1][2 * i + 2]
                         )
                         d_idx = mgr.NodeToIndex(2 * i + 2)
+                        # The API takes the ROUTING INDEX, not the CumulVar:
+                        #   SetCumulVarSoftUpperBound(int64 index, int64 ub, int64 coeff)
+                        # Passing t_dim.CumulVar(d_idx) raised
+                        #   TypeError: in method
+                        #   'RoutingDimension_SetCumulVarSoftUpperBound',
+                        #   argument 2 of type 'int64_t'
+                        # on every shared-trip solve as soon as
+                        # vrp_delay_penalty_per_min was raised above 0.0
+                        # (confirmed on ortools 9.15.6755).
                         t_dim.SetCumulVarSoftUpperBound(
-                            t_dim.CumulVar(d_idx),
+                            d_idx,
                             direct_sec + max_delay_sec,
                             per_sec,
                         )
@@ -778,24 +788,43 @@ class RouteOptimizer:
         matrix_s: List[List[int]],
         source: str,
         trip_key: Optional[str],
+        service_sec: int = 0,
     ) -> OptimizedRoute:
         """Assemble the OptimizedRoute from the OR-Tools solution."""
         node_index = routing.Start(0)
         stop_order: List[Stop] = []
         total_dist = 0
         prev = 0
+        # Arrival clock reconstructed from the solved visit order.  It is the
+        # only source of arrival times when _solve_pdp fell back to the
+        # relaxed re-solve, which drops the time dimension (time_dim = None).
+        # Defaulting those arrivals to 0.0 made every stop arrive at t=0,
+        # which produced total_duration_min = 0 and NEGATIVE max_delay_min
+        # (arrival - pickup - direct_time), both persisted onto the Trip row
+        # and fed to the learning engine as a real outcome.
+        running_sec = 0.0
 
         while not routing.IsEnd(node_index):
             node = manager.IndexToNode(node_index)
             if node != 0:
                 req = requests[(node - 1) // 2]
                 is_pickup = node % 2 == 1
-                arr_sec = 0.0
+                # Mirror the model's transit definition (see build_model):
+                # travel time on the arc, service time charged on departure
+                # from a pickup node.
+                running_sec += matrix_s[prev][node]
+                arr_sec = running_sec
+                if is_pickup:
+                    running_sec += service_sec
                 if time_dim is not None:
                     try:
                         arr_sec = solution.Min(time_dim.CumulVar(node_index))
                     except Exception:
-                        arr_sec = 0.0
+                        logger.warning(
+                            "Trip %s: no CumulVar for node %d — falling back "
+                            "to the reconstructed arrival clock",
+                            trip_key, node,
+                        )
                 stop_order.append(Stop(
                     request_id=req.id,
                     action="pickup" if is_pickup else "drop",

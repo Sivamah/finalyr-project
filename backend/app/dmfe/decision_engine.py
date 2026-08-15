@@ -545,24 +545,11 @@ class DecisionEngine:
         threshold = _get_threshold(db)
         rules = _get_ai_rules(db)
 
-        # A-DMFE: effective threshold (context-adjusted) in adaptive mode
-        mode = resolve_mode(db)
-        context_profile_dict = None
-        if mode == "adaptive":
-            from app.dmfe.adaptive.context import ContextAwarenessEngine
-            from app.dmfe.adaptive.decision import effective_threshold
-
-            pending_preview = (
-                db.query(SimulationRequest)
-                .filter(SimulationRequest.status == "Pending")
-                .order_by(SimulationRequest.id.asc())
-                .limit(200)
-                .all()
-            )
-            context = ContextAwarenessEngine().build(db, pending_preview)
-            context_profile_dict = context.to_dict()
-            threshold = effective_threshold(threshold, context)
-
+        # The queue this run analyses.  Fetched BEFORE the context profile so
+        # both are derived from the same requests: the profile used to be
+        # built from a separate `id.asc()` query while the analysis ran on
+        # `created_at.desc()`, so above 200 pending the adaptive threshold
+        # came from a disjoint set of requests.
         pending: List[SimulationRequest] = (
             db.query(SimulationRequest)
             .filter(SimulationRequest.status == "Pending")
@@ -570,6 +557,17 @@ class DecisionEngine:
             .limit(200)            # cap for performance
             .all()
         )
+
+        # A-DMFE: effective threshold (context-adjusted) in adaptive mode
+        mode = resolve_mode(db)
+        context_profile_dict = None
+        if mode == "adaptive":
+            from app.dmfe.adaptive.context import ContextAwarenessEngine
+            from app.dmfe.adaptive.decision import effective_threshold
+
+            context = ContextAwarenessEngine().build(db, pending)
+            context_profile_dict = context.to_dict()
+            threshold = effective_threshold(threshold, context)
 
         if not pending:
             # Persist empty analysis run

@@ -47,7 +47,7 @@ graph TD
 - Uvicorn (ASGI Server)
 
 **Testing & Security:**
-- Pytest, Vitest, Playwright
+- Pytest (backend), oxlint (frontend)
 - JWT Authentication, bcrypt, CORS, Security Headers
 
 ---
@@ -75,9 +75,7 @@ rapidoproject/
     │   ├── context/       # Auth & WebSocket contexts
     │   ├── pages/         # Dashboard views (Admin, Driver, Customer)
     │   └── services/      # API communication layer
-    ├── e2e/               # Playwright end-to-end tests
-    ├── __tests__/         # Vitest unit & component tests
-    ├── vite.config.js     # Vite & Vitest configuration
+    ├── vite.config.js     # Vite config (test block reserved for Vitest)
     └── vercel.json        # Vercel deployment routing
 ```
 
@@ -99,9 +97,16 @@ python -m venv .venv
 source .venv/bin/activate
 
 pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env   # keep DATABASE_URL commented out to use SQLite
 uvicorn app.main:app --reload
 ```
+
+> **Local development needs no database setup.** Leave `DATABASE_URL` and the
+> `POSTGRES_*` block commented out in `.env` and the backend auto-creates
+> `backend/dmfe_dev.db`. Pointing `DATABASE_URL` at a server that is not
+> running makes every request fail with an `OperationalError`, because it
+> takes priority over the SQLite fallback.
+
 API runs at `http://localhost:8000`
 Swagger Docs at `http://localhost:8000/api/docs`
 
@@ -143,11 +148,18 @@ During Phase 9, a comprehensive security audit was performed. The following prot
 
 We maintain high confidence in the platform through a layered testing strategy.
 
-1. **Backend Tests (Pytest)**: Run `python -m pytest tests/`
-   - Covers Authentication, Bookings, DMFE Batching logic, Admin role changes, and Analytics outputs.
-2. **Frontend Tests (Vitest & RTL)**: Run `npm run test`
-   - Validates component rendering, routing behavior, and form validation for Login/Registration.
-3. **End-to-End Tests (Playwright)**: Configured in `e2e/workflow.spec.js` to simulate real user journeys from registration to booking.
+1. **Backend Tests (Pytest)**: Run `python -m pytest tests/` from `backend/`
+   - Covers compatibility scoring, driver selection, the unified scoring path,
+     and the Phase 4 / 4.1 learning engine (`backend/tests/`).
+2. **API smoke test**: Run `python e2e_test.py` from the repo root against a
+   running backend.
+3. **Frontend linting**: Run `npm run lint` (oxlint) from `frontend/`.
+
+> **Frontend unit and E2E tests are not implemented yet.** There is no `test`
+> script in `frontend/package.json`, and Vitest, Playwright and
+> `@testing-library` are not installed. `src/setupTests.js` and the `test`
+> block in `vite.config.js` are scaffolding for that future work — wiring them
+> up requires installing those dev dependencies first.
 
 ---
 
@@ -176,7 +188,7 @@ We maintain high confidence in the platform through a layered testing strategy.
 **Health Score:** 98/100 (Production Ready)
 
 **Improvements Made in Phase 9:**
-1. Unified scattered test files into robust Pytest and Vitest suites.
+1. Unified scattered test files into a single Pytest suite (`backend/tests/`).
 2. Locked down CORS and added security headers.
 3. Implemented dynamic lazy-loading for heavy frontend routes.
 4. Fixed API routing prefix bugs between frontend services and backend endpoints.
