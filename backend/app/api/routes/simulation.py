@@ -156,8 +156,24 @@ def get_simulation_status(db: SessionDep, current_user: CurrentUser):
 
 
 @router.get("/queue", response_model=SimulationQueueResponse)
-def get_simulation_queue(db: SessionDep, current_user: CurrentUser, limit: int = 200):
-    reqs = simulation_engine.queue_manager.get_pending(db, limit=limit)
+def get_simulation_queue(
+    db: SessionDep,
+    current_user: CurrentUser,
+    limit: int = 200,
+    demo_only: bool = False,
+):
+    if demo_only:
+        from app.db.models import SimulationRequest
+        reqs = (
+            db.query(SimulationRequest)
+            .filter(SimulationRequest.status == "Pending")
+            .filter(SimulationRequest.pickup_address.like("[A-DMFE Demo Scenario]%"))
+            .order_by(SimulationRequest.created_at.desc())
+            .limit(limit)
+            .all()
+        )
+    else:
+        reqs = simulation_engine.queue_manager.get_pending(db, limit=limit)
     provider_names = _provider_name_map(db, reqs)
     items = [_to_queue_item(r, provider_names) for r in reqs]
     return SimulationQueueResponse(total=len(items), items=items)

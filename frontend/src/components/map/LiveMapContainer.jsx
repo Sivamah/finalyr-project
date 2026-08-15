@@ -17,39 +17,44 @@ const containerStyle = {
 };
 
 const darkMapStyles = [
-  { elementType: 'geometry', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#242f3e' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#746855' }] },
+  { elementType: 'geometry', stylers: [{ color: '#030712' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#030712' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#88aadd' }] },
   {
     featureType: 'administrative.locality',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    stylers: [{ color: '#22d3ee' }],
   },
   {
     featureType: 'poi',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#d59563' }],
+    stylers: [{ color: '#315cff' }],
   },
   {
     featureType: 'road',
     elementType: 'geometry',
-    stylers: [{ color: '#38414e' }],
+    stylers: [{ color: '#071225' }],
   },
   {
     featureType: 'road',
     elementType: 'geometry.stroke',
-    stylers: [{ color: '#212a37' }],
+    stylers: [{ color: '#0a1a36' }],
   },
   {
     featureType: 'road',
     elementType: 'labels.text.fill',
-    stylers: [{ color: '#9ca3af' }],
+    stylers: [{ color: '#5577aa' }],
   },
   {
     featureType: 'water',
     elementType: 'geometry',
-    stylers: [{ color: '#17263c' }],
+    stylers: [{ color: '#050b16' }],
   },
+  {
+    featureType: 'transit',
+    elementType: 'geometry',
+    stylers: [{ color: '#0a1a36' }],
+  }
 ];
 
 // Custom Leaflet DivIcons for fallback map

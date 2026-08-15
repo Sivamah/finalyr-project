@@ -47,6 +47,7 @@ def list_batches(
     status: Optional[str] = Query(None, description="Filter by status: Pending | Rejected"),
     run_id: Optional[int] = Query(None, description="Filter by analysis run ID"),
     limit: int = Query(100, le=500),
+    demo_only: bool = Query(False, description="Show only batches containing demo scenario requests"),
 ):
     """
     Return persisted DMFE batch records.
@@ -57,7 +58,29 @@ def list_batches(
         q = q.filter(DMFEBatch.status == status)
     if run_id:
         q = q.filter(DMFEBatch.analysis_run_id == run_id)
-    batches = q.order_by(DMFEBatch.created_at.desc()).limit(limit).all()
+        
+    if demo_only:
+        from app.db.models import SimulationRequest
+        from app.core.json_utils import json_loads
+        
+        demo_req_ids = [
+            r[0] for r in db.query(SimulationRequest.id).filter(
+                SimulationRequest.pickup_address.like("[A-DMFE Demo Scenario]%")
+            ).all()
+        ]
+        
+        all_batches = q.order_by(DMFEBatch.created_at.desc()).all()
+        filtered_batches = []
+        for b in all_batches:
+            r_ids = json_loads(b.request_ids_json, [])
+            if any(rid in demo_req_ids for rid in r_ids):
+                filtered_batches.append(b)
+                if len(filtered_batches) >= limit:
+                    break
+        batches = filtered_batches
+    else:
+        batches = q.order_by(DMFEBatch.created_at.desc()).limit(limit).all()
+        
     return [batch_to_dict(b, db) for b in batches]
 
 

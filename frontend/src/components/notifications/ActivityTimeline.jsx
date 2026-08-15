@@ -18,7 +18,7 @@ const CATEGORY_COLOR = {
 export default function ActivityTimeline({ timeline = [] }) {
   if (timeline.length === 0) {
     return (
-      <div className="surface-card rounded-3xl p-12 text-center">
+      <div className="p-4 text-center">
         <Activity className="h-10 w-10 mx-auto mb-2 opacity-40 text-brand-text-muted" />
         <p className="text-sm font-medium text-brand-text-secondary">No activity events recorded</p>
         <p className="text-[11px] text-brand-text-muted mt-1">System events will appear here chronologically</p>
@@ -27,12 +27,7 @@ export default function ActivityTimeline({ timeline = [] }) {
   }
 
   return (
-    <div className="surface-card rounded-3xl p-6">
-      <div className="flex items-center justify-between pb-4 mb-5 border-b border-white/[0.06]">
-        <h3 className="text-[13px] font-semibold text-white tracking-wide">Activity Stream</h3>
-        <span className="text-[11px] text-brand-text-muted font-mono">{timeline.length} events</span>
-      </div>
-
+    <div className="w-full">
       <div className="relative pl-7 space-y-5 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-brand-primary/40 before:via-white/[0.08] before:to-transparent">
         {timeline.map((item, idx) => {
           const Icon = CATEGORY_ICON[item.category] || Info;

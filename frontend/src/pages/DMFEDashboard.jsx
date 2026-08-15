@@ -22,6 +22,7 @@ export default function DMFEDashboard() {
   const [loadingQueue, setLoadingQueue] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [activeTab, setActiveTab] = useState('batches');
+  const [demoMode, setDemoMode] = useState(false);
 
   const autoRefreshRef = useRef(null);
 
@@ -35,27 +36,29 @@ export default function DMFEDashboard() {
   const fetchPendingQueue = useCallback(async () => {
     setLoadingQueue(true);
     try {
-      const res = await api.get('/simulation/queue?limit=50');
+      const demoParam = demoMode ? '&demo_only=true' : '';
+      const res = await api.get(`/simulation/queue?limit=50${demoParam}`);
       setPending(res.data?.items || []);
     } catch {
       setPending([]);
     } finally {
       setLoadingQueue(false);
     }
-  }, []);
+  }, [demoMode]);
 
   const fetchBatches = useCallback(async () => {
     try {
+      const demoParam = demoMode ? '&demo_only=true' : '';
       const [compatRes, rejRes] = await Promise.all([
-        api.get('/dmfe/batches?status=Pending&limit=50'),
-        api.get('/dmfe/batches?status=Rejected&limit=50'),
+        api.get(`/dmfe/batches?status=Pending&limit=50${demoParam}`),
+        api.get(`/dmfe/batches?status=Rejected&limit=50${demoParam}`),
       ]);
       if (!lastResult) {
         setCompatBatches(compatRes.data || []);
         setRejectedBatches(rejRes.data || []);
       }
     } catch { /* silent */ }
-  }, [lastResult]);
+  }, [lastResult, demoMode]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -121,6 +124,18 @@ export default function DMFEDashboard() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
+              onClick={() => setDemoMode((v) => !v)}
+              className={`btn-glass ${demoMode ? '!text-amber-400 !border-amber-400/50 !bg-amber-400/10' : ''}`}
+            >
+              <span className={`relative flex h-1.5 w-1.5 ${demoMode ? '' : 'opacity-50'}`}>
+                <span className={`absolute inline-flex h-full w-full rounded-full animate-ping ${demoMode ? 'bg-amber-400' : 'bg-brand-text-muted'}`} />
+                <span className={`relative inline-flex rounded-full h-1.5 w-1.5 ${demoMode ? 'bg-amber-400' : 'bg-brand-text-muted'}`} />
+              </span>
+              Demo Mode {demoMode ? 'On' : 'Off'}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setAutoRefresh((v) => !v)}
               className={`btn-glass ${autoRefresh ? '!text-brand-secondary !border-brand-secondary/40 !bg-brand-secondary/10' : ''}`}
             >
@@ -151,6 +166,12 @@ export default function DMFEDashboard() {
           </div>
         }
       />
+
+      {demoMode && (
+        <div className="bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2 rounded-lg flex items-center justify-center font-bold text-sm tracking-wide shadow-sm">
+          ⚠️ DEMO MODE — showing curated scenario only
+        </div>
+      )}
 
       <DMFEStatisticsBar stats={stats} lastResult={lastResult} />
 

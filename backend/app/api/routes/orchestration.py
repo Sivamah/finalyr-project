@@ -163,7 +163,7 @@ def simulate_requests(db: SessionDep, current_user: CurrentUser, count: int = 10
     return {"message": f"{len(requests)} simulation requests created"}
 
 
-@router.get("/requests", response_model=List)
+@router.get("/requests")
 def list_requests(db: SessionDep, current_user: CurrentUser, limit: int = 50):
     reqs = (
         db.query(SimulationRequest)
@@ -171,4 +171,24 @@ def list_requests(db: SessionDep, current_user: CurrentUser, limit: int = 50):
         .limit(limit)
         .all()
     )
-    return reqs
+    return [
+        {
+            "id": r.id,
+            "request_type": r.request_type,
+            "provider_id": r.provider_id,
+            "pickup_lat": r.pickup_lat,
+            "pickup_lng": r.pickup_lng,
+            "drop_lat": r.drop_lat,
+            "drop_lng": r.drop_lng,
+            "pickup_address": r.pickup_address or "",
+            "drop_address": r.drop_address or "",
+            "demand": r.demand or 1,
+            "weight_kg": r.weight_kg or 0.0,
+            "priority": r.priority or "Medium",
+            "vehicle_type": r.vehicle_type or "Auto",
+            "estimated_distance_km": r.estimated_distance_km or 0.0,
+            "status": r.status or "Pending",
+            "created_at": r.created_at,
+        }
+        for r in reqs
+    ]

@@ -524,6 +524,7 @@ class DecisionEngine:
     def run_analysis(self, db: Session) -> DMFEResult:
         """
         Full DMFE analysis pipeline (Phase 9 decision logic):
+          0. Release stale trips to free drivers/vehicles.
           1. Seed any missing config keys (weights, threshold, limits).
           2. Load all pending requests (status='Pending').
           3. Generate candidate groups (BatchGenerator).
@@ -534,6 +535,12 @@ class DecisionEngine:
              and one DMFEAnalysisRun summary.
           6. Return DMFEResult (response shape unchanged).
         """
+        # Step 0 — Release stale trips (mirrors PipelineRunner.run step 0)
+        from app.dmfe.driver_selection import complete_stale_trips
+        released = complete_stale_trips(db, max_age_min=10.0)
+        if released:
+            logger.info("DMFE analysis pre-run: released %d stale trip(s)", released)
+
         _seed_dmfe_configs(db)
         threshold = _get_threshold(db)
         rules = _get_ai_rules(db)

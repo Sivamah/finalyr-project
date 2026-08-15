@@ -52,7 +52,7 @@ class DriverService:
 
             providers = db.query(Provider).all()
             if not providers:
-                p = Provider(name="Default Provider", category="Logistics")
+                p = Provider(name="Default Provider", provider_type="3PL", category="Logistics")
                 db.add(p)
                 db.commit()
                 db.refresh(p)

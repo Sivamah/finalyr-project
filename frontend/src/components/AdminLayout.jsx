@@ -125,8 +125,8 @@ export default function AdminLayout() {
         {/* Brand */}
         <div className="flex items-center gap-3.5 px-6 pt-7 pb-5">
           <div className="relative">
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-brand-primary/60 to-brand-accent/60 blur-md opacity-60" />
-            <div className="relative h-11 w-11 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-accent border border-white/20 flex items-center justify-center shadow-lg">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-brand-primary/60 to-brand-secondary/60 blur-md opacity-60" />
+            <div className="relative h-11 w-11 rounded-2xl bg-gradient-to-br from-brand-primary to-brand-secondary border border-brand-primary/20 flex items-center justify-center shadow-lg">
               <Cpu className="h-5 w-5 text-white drop-shadow" />
             </div>
           </div>
@@ -167,17 +167,17 @@ export default function AdminLayout() {
                         {isActive && (
                           <motion.span
                             layoutId="nav-active"
-                            className="absolute inset-0 rounded-2xl bg-white/[0.08] border border-white/[0.12]"
+                            className="absolute inset-0 rounded-xl bg-brand-card border border-brand-primary/20 shadow-[0_0_15px_rgba(22,119,255,0.15)]"
                             transition={{ type: 'spring', stiffness: 350, damping: 30 }}
                           />
                         )}
                         {isActive && (
-                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-full bg-gradient-to-b from-brand-primary to-brand-accent shadow-[0_0_12px_rgba(59,130,246,0.7)]" />
+                          <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-md bg-brand-primary shadow-[0_0_12px_rgba(22,119,255,0.8)]" />
                         )}
                         <item.icon
                           className={`relative z-10 h-[18px] w-[18px] ${
                             isActive
-                              ? 'text-brand-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.6)]'
+                              ? 'text-brand-primary drop-shadow-[0_0_8px_rgba(22,119,255,0.6)]'
                               : 'text-brand-text-muted group-hover:text-white'
                           }`}
                         />
@@ -212,7 +212,7 @@ export default function AdminLayout() {
               <span className="text-brand-text-secondary font-medium">98.4%</span>
             </div>
             <div className="mt-1.5 h-1 w-full rounded-full bg-white/[0.06] overflow-hidden">
-              <div className="h-full rounded-full bg-gradient-to-r from-brand-primary to-brand-accent" style={{ width: '98.4%' }} />
+              <div className="h-full rounded-full bg-brand-primary" style={{ width: '98.4%' }} />
             </div>
           </div>
         </div>
@@ -220,7 +220,7 @@ export default function AdminLayout() {
         {/* User */}
         <div className="px-5 pb-5">
           <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3.5 group">
-            <div className="relative h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-brand-primary to-brand-accent border border-white/20 flex items-center justify-center text-white text-[13px] font-semibold">
+            <div className="relative h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary border border-brand-primary/20 flex items-center justify-center text-white text-[13px] font-semibold">
               {user?.full_name?.charAt(0) || 'A'}
               <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-brand-success border-2 border-[#0E1626]" />
             </div>
@@ -276,7 +276,7 @@ export default function AdminLayout() {
             </NavLink>
 
             <div className="hidden sm:flex items-center gap-2.5 pl-2.5 border-l border-white/[0.08]">
-              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-primary to-brand-accent border border-white/20 flex items-center justify-center text-white text-[12px] font-semibold">
+              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-primary to-brand-secondary border border-brand-primary/20 flex items-center justify-center text-white text-[12px] font-semibold">
                 {user?.full_name?.charAt(0) || 'A'}
               </div>
               <div className="hidden xl:block leading-tight">

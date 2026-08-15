@@ -111,7 +111,7 @@ class DriverCandidate:
     completion_rate: float = 1.0
     recent_assignments: int = 0
     lifetime_assignments: int = 0
-    weights_used: Dict[str, float] = None
+    weights_used: Optional[Dict[str, float]] = None
     learning_proximity_bump: float = 0.0  # adaptive-only weight boost (0 in static)
 
     def to_dict(self) -> Dict:

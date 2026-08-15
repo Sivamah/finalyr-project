@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 export default function AnimatedBackground() {
   const particles = useMemo(
     () =>
-      Array.from({ length: 22 }, () => ({
+      Array.from({ length: 8 }, () => ({
         x: Math.random() * 100,
         y: Math.random() * 100,
         size: Math.random() * 2.4 + 0.8,
@@ -22,22 +22,6 @@ export default function AnimatedBackground() {
     <div className="fixed inset-0 z-[-1] overflow-hidden bg-[#050816]" aria-hidden>
       {/* Base volumetric blue bloom */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_70%_60%_at_50%_-10%,_rgba(59,130,246,0.14)_0%,_rgba(5,8,22,1)_65%)]" />
-
-      {/* Aurora — slowly shifting blue field */}
-      <div
-        className="absolute left-[8%] top-[14%] w-[46vw] h-[46vw] bg-brand-primary/14 rounded-full blur-[120px] mix-blend-screen animate-aurora"
-        style={{ willChange: 'transform' }}
-      />
-      {/* Aurora — purple field, counterweight */}
-      <div
-        className="absolute right-[2%] bottom-[6%] w-[52vw] h-[52vw] bg-brand-accent/12 rounded-full blur-[140px] mix-blend-screen animate-aurora"
-        style={{ animationDelay: '5s', willChange: 'transform' }}
-      />
-      {/* Fine cyan secondary light */}
-      <div
-        className="absolute top-[55%] left-[55%] w-[26vw] h-[26vw] bg-brand-secondary/8 rounded-full blur-[110px] animate-float-slow"
-        style={{ willChange: 'transform' }}
-      />
 
       {/* Drifting embers */}
       {particles.map((p, i) => (

@@ -3,14 +3,14 @@ import { Marker, InfoWindow } from '@react-google-maps/api';
 import MarkerPopup from './MarkerPopup';
 
 // Color definitions:
-// Ride  -> Blue (#2563eb)
-// Food  -> Orange (#ea580c)
-// Parcel-> Green (#16a34a)
+// Ride  -> Cyan (#22D3EE)
+// Food  -> Delivery Orange (#F97316)
+// Parcel-> Success Green (#22C55E)
 
 export const MARKER_COLORS = {
-  ride: '#2563eb',
-  food: '#ea580c',
-  parcel: '#16a34a',
+  ride: '#22D3EE',
+  food: '#F97316',
+  parcel: '#22C55E',
 };
 
 // SVG custom marker generator for Google Maps
