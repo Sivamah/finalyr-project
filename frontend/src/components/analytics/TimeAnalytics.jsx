@@ -2,14 +2,13 @@ import React from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
-import { Clock, Timer, Zap, Calendar, TrendingUp } from 'lucide-react';
+import { Clock, Timer, Zap, Calendar } from 'lucide-react';
 
 export default function TimeAnalytics({ data = {} }) {
   const avgWait = data.avg_queue_waiting_time_sec ?? 0;
   const avgCompletion = data.avg_completion_time_sec ?? 0;
   const peakHour = data.peak_request_hour || 'N/A';
   const hourlyData = data.hourly_distribution || [];
-  const dailyData = data.daily_distribution || [];
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-sm mb-6">

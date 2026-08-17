@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Truck, Plus, Edit2, Trash2, Fuel, Users, Shield, Wrench } from 'lucide-react';
+import { Plus, Edit2, Trash2, Fuel } from 'lucide-react';
 
 const STATUS_STYLE = {
   Available: 'bg-green-500/10 text-green-400 border-green-500/30',

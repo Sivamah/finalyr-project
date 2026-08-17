@@ -23,6 +23,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import joinedload
 
 from app.api.deps import SessionDep, CurrentUser
 from app.core.json_utils import json_loads
@@ -342,7 +343,9 @@ def list_trips(
     limit: int = 100,
 ):
     """Dispatched trips (optionally filtered by status)."""
-    q = db.query(Trip)
+    q = db.query(Trip).options(
+        joinedload(Trip.driver), joinedload(Trip.vehicle)
+    )
     if status:
         q = q.filter(Trip.status == status)
     trips = q.order_by(Trip.created_at.desc()).limit(limit).all()
@@ -397,7 +400,7 @@ def list_assignments(
     limit: int = 100,
 ):
     """Driver → vehicle → trip assignments (optionally by status)."""
-    q = db.query(DriverAssignment)
+    q = db.query(DriverAssignment).options(joinedload(DriverAssignment.trip))
     if status:
         q = q.filter(DriverAssignment.status == status)
     rows = q.order_by(DriverAssignment.assigned_at.desc()).limit(limit).all()

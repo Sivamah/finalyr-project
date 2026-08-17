@@ -41,7 +41,7 @@ def get_explanation_by_id(
     current_user: CurrentUser,
 ):
     """Get explanation details for a specific request ID."""
-    explanations = xai_service.get_explanations(db, search=str(request_id), limit=10)
+    explanations = xai_service.get_explanations(db, request_id=request_id)
     for exp in explanations:
         if exp.request_id == request_id:
             return exp

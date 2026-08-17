@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Layers, Plus, Trash2, Shield, CloudRain, Sun, Zap } from 'lucide-react';
+import { Layers, Plus, Trash2 } from 'lucide-react';
 
 export default function ScenarioManager({ scenarios = [], onCreateScenario, onDeleteScenario }) {
   const [showModal, setShowModal] = useState(false);

@@ -29,7 +29,7 @@ from app.schemas.simulation import (
     SimulationAnalyticsResponse,
     AdvancedAnalyticsResponse,
 )
-from app.services.simulation_service import simulation_engine
+from app.services.simulation_service import simulation_engine, completed_at_map
 
 router = APIRouter()
 
@@ -66,9 +66,14 @@ def _to_queue_item(req, provider_names: dict) -> SimulationQueueItem:
     )
 
 
-def _to_history_item(req, provider_names: dict) -> SimulationHistoryItem:
+def _to_history_item(req, provider_names: dict, completed_by_request: Optional[dict] = None) -> SimulationHistoryItem:
+    completed_at = (completed_by_request or {}).get(req.id) or req.created_at
     duration_sec = 0.0
-    if req.request_timestamp and req.created_at:
+    if completed_at and req.created_at:
+        duration_sec = max(0.0, (completed_at - req.created_at).total_seconds())
+    if duration_sec <= 0 and req.request_timestamp and req.created_at:
+        # Legacy rows without a real completion record fall back to the
+        # simulated arrival anchor so the duration stays plausible.
         duration_sec = max(0.0, (req.created_at - req.request_timestamp).total_seconds())
 
     return SimulationHistoryItem(
@@ -81,8 +86,8 @@ def _to_history_item(req, provider_names: dict) -> SimulationHistoryItem:
         priority=req.priority or "Medium",
         estimated_distance_km=req.estimated_distance_km or 0.0,
         status=req.status or "Completed",
-        completed_at=req.created_at,
-        created_at=req.request_timestamp or req.created_at,
+        completed_at=completed_at,
+        created_at=req.created_at,
         processing_duration_sec=round(duration_sec, 1),
     )
 
@@ -183,7 +188,8 @@ def get_simulation_queue(
 def get_simulation_history(db: SessionDep, current_user: CurrentUser, limit: int = 200):
     reqs = simulation_engine.queue_manager.get_completed(db, limit=limit)
     provider_names = _provider_name_map(db, reqs)
-    items = [_to_history_item(r, provider_names) for r in reqs]
+    completed_by_request = completed_at_map(db)
+    items = [_to_history_item(r, provider_names, completed_by_request) for r in reqs]
     return SimulationHistoryResponse(total=len(items), items=items)
 
 

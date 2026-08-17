@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gauge, Sparkles, Award } from 'lucide-react';
+import { Gauge, Sparkles } from 'lucide-react';
 
 export default function CompatibilityGauge({ score = 89.5, confidence = 92 }) {
   const roundedScore = Math.round(score);

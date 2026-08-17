@@ -2,10 +2,16 @@ import json
 from typing import List
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from app.core.json_utils import json_loads
-from app.db.models import Dataset, SimulationRequest, Provider, Vehicle, OptimizationResult
-from app.schemas.orchestration import OptimizationResultResponse, DatasetResponse
+from app.core.config import BACKEND_DIR
+from app.db.models import Dataset, SimulationRequest, Trip
+from app.schemas.orchestration import DatasetResponse
 from app.api.deps import SessionDep, CurrentUser
-from app.engine.optimizer import AIOrchestrator
+
+# Provider, Vehicle, OptimizationResult, OptimizationResultResponse and
+# AIOrchestrator were imported here for the legacy /optimize path. That path is
+# retired (see run_optimization below) and the OptimizationResult table is no
+# longer written or read, so the imports are dropped rather than left implying
+# the path is still wired up.
 
 router = APIRouter()
 
@@ -31,16 +37,24 @@ def upload_dataset(
 
     if file:
         ext = os.path.splitext(file.filename)[1] if file.filename else ""
-        fd, file_path = tempfile.mkstemp(suffix=ext, dir="datasets")
+        dataset_dir = os.path.join(BACKEND_DIR, "datasets")
+        os.makedirs(dataset_dir, exist_ok=True)
+        fd, file_path = tempfile.mkstemp(suffix=ext, dir=dataset_dir)
         os.close(fd)
         content = file.file.read()
         with open(file_path, "wb") as f:
             f.write(content)
 
         if file_type == "csv":
-            row_count = len(content.decode().splitlines()) - 1
+            try:
+                row_count = len(content.decode().splitlines()) - 1
+            except UnicodeDecodeError:
+                raise HTTPException(400, "CSV file must be UTF-8 text")
         elif file_type == "json":
-            data = json.loads(content)
+            try:
+                data = json.loads(content)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                raise HTTPException(400, "Invalid JSON file")
             row_count = len(data) if isinstance(data, list) else 1
 
     dataset = Dataset(
@@ -67,93 +81,106 @@ def delete_dataset(dataset_id: int, db: SessionDep, current_user: CurrentUser):
     return {"message": "Dataset deleted"}
 
 
-@router.post("/optimize", response_model=List[OptimizationResultResponse])
+@router.post("/optimize")
 def run_optimization(db: SessionDep, current_user: CurrentUser):
-    providers = db.query(Provider).filter(Provider.status == "Active").all()
-    if not providers:
-        raise HTTPException(400, "No active providers found. Create providers first.")
+    """
+    RETIRED — this endpoint ran the legacy AIOrchestrator (app/engine/optimizer.py),
+    a second optimizer independent of A-DMFE.
 
-    vehicles = db.query(Vehicle).filter(Vehicle.is_active == True).all()
-    if not vehicles:
-        raise HTTPException(400, "No active vehicles found. Add vehicles to providers first.")
+    It was actively harmful, for two reasons:
 
-    orchestrator = AIOrchestrator(providers=providers, vehicles=vehicles, db=db)
-    results = orchestrator.run()
+      1. It selected EVERY request with status == "Pending" — not just the ones
+         the caller had just simulated — and set them to status = "Optimized"
+         (app/engine/optimizer.py::_mark_optimized). No other code in this
+         codebase reads the value "Optimized", and the A-DMFE pipeline filters
+         on status == "Pending", so each call silently and permanently removed
+         the entire A-DMFE queue from the engine's reach.
 
-    saved_results = []
-    for r in results:
-        result = OptimizationResult(
-            request_count=r["request_count"],
-            provider_id=r.get("provider_id"),
-            vehicle_id=r.get("vehicle_id"),
-            best_route_json=json.dumps(r.get("best_route", {})),
-            chosen_provider=r["chosen_provider"],
-            chosen_vehicle=r["chosen_vehicle"],
-            estimated_cost=r["estimated_cost"],
-            eta_mins=r["eta_mins"],
-            fuel_saved_l=r["fuel_saved_l"],
-            distance_saved_km=r["distance_saved_km"],
-            co2_saved_kg=r["co2_saved_kg"],
-            optimization_score=r["optimization_score"],
-            explanation_json=json.dumps(r.get("explanation", {})),
-        )
-        db.add(result)
-        saved_results.append(result)
+      2. It wrote OptimizationResult rows, while GET /api/orchestration/results
+         reads Trip rows. The page therefore displayed one entity type after
+         Run and a different one after Refresh.
 
-    db.commit()
-    for r in saved_results:
-        db.refresh(r)
-    return saved_results
+    The application now runs a single engine. Route optimisation is performed
+    by POST /api/dmfe/analyze, whose output this page reads via
+    GET /api/orchestration/results.
+
+    The AIOrchestrator class is left in the tree unmodified for reference; it
+    simply has no caller.
+    """
+    raise HTTPException(
+        status_code=410,
+        detail=(
+            "The legacy orchestrator has been retired — it consumed the A-DMFE "
+            "pending queue. Use POST /api/dmfe/analyze instead; its results are "
+            "served by GET /api/orchestration/results."
+        ),
+    )
+
+
+def _trip_to_result(t: Trip) -> dict:
+    """
+    Serialize one A-DMFE Trip into the shape this page renders.
+
+    Both GET /results and GET /results/{id} go through here. They used to read
+    different tables — the list returned Trip rows while the detail route
+    queried OptimizationResult by the SAME id — so opening any row looked up a
+    trip id in an unrelated table.
+    """
+    request_ids = json_loads(t.request_ids_json, [])
+    stop_order = json_loads(t.stop_order_json, [])
+    return {
+        "id": t.id,
+        "batch_id": t.trip_code,
+        "request_count": len(request_ids) if isinstance(request_ids, list) else 0,
+        "provider_id": t.driver.provider_id if t.driver else None,
+        "vehicle_id": t.vehicle_id,
+        "best_route_json": {
+            "distance_km": t.total_distance_km or 0.0,
+            "duration_min": t.total_duration_min or 0.0,
+            "stops": stop_order,
+        },
+        # Was hardcoded to the string "DMFE". Report the driver's actual
+        # provider; fall back to the engine name only when unknown.
+        "chosen_provider": (
+            t.driver.provider.name
+            if t.driver is not None and t.driver.provider is not None
+            else "A-DMFE"
+        ),
+        "chosen_vehicle": t.vehicle.name if t.vehicle else "Unknown",
+        "estimated_cost": t.estimated_cost or 0.0,
+        "eta_mins": t.eta_min or 0.0,
+        "fuel_saved_l": t.fuel_saved_l or 0.0,
+        "distance_saved_km": t.distance_saved_km or 0.0,
+        "co2_saved_kg": t.co2_saved_kg or 0.0,
+        "optimization_score": t.optimization_score or 0.0,
+        "explanation_json": {
+            "status": t.status,
+            "type": "shared" if t.is_shared else "individual",
+            "trip_code": t.trip_code,
+        },
+        "created_at": t.created_at,
+    }
 
 
 @router.get("/results")
 def list_results(db: SessionDep, current_user: CurrentUser, limit: int = 50):
-    from app.db.models import Trip
+    """Most recent A-DMFE trips, newest first."""
     trips = (
         db.query(Trip)
         .order_by(Trip.created_at.desc())
         .limit(limit)
         .all()
     )
-    results = []
-    for t in trips:
-        request_ids = json_loads(t.request_ids_json, [])
-        stop_order = json_loads(t.stop_order_json, [])
-        results.append({
-            "id": t.id,
-            "batch_id": t.trip_code,
-            "request_count": len(request_ids) if isinstance(request_ids, list) else 0,
-            "provider_id": t.driver.provider_id if t.driver else None,
-            "vehicle_id": t.vehicle_id,
-            "best_route_json": {
-                "distance_km": t.total_distance_km or 0.0,
-                "duration_min": t.total_duration_min or 0.0,
-                "stops": stop_order,
-            },
-            "chosen_provider": "DMFE",
-            "chosen_vehicle": t.vehicle.name if t.vehicle else "Unknown",
-            "estimated_cost": t.estimated_cost or 0.0,
-            "eta_mins": t.eta_min or 0.0,
-            "fuel_saved_l": t.fuel_saved_l or 0.0,
-            "distance_saved_km": t.distance_saved_km or 0.0,
-            "co2_saved_kg": t.co2_saved_kg or 0.0,
-            "optimization_score": t.optimization_score or 0.0,
-            "explanation_json": {
-                "status": t.status,
-                "type": "shared" if t.is_shared else "individual",
-                "trip_code": t.trip_code,
-            },
-            "created_at": t.created_at,
-        })
-    return results
+    return [_trip_to_result(t) for t in trips]
 
 
-@router.get("/results/{result_id}", response_model=OptimizationResultResponse)
+@router.get("/results/{result_id}")
 def get_result(result_id: int, db: SessionDep, current_user: CurrentUser):
-    result = db.query(OptimizationResult).filter(OptimizationResult.id == result_id).first()
-    if not result:
+    """One A-DMFE trip, by the same id GET /results returns."""
+    trip = db.query(Trip).filter(Trip.id == result_id).first()
+    if not trip:
         raise HTTPException(404, "Result not found")
-    return result
+    return _trip_to_result(trip)
 
 
 @router.post("/simulate")

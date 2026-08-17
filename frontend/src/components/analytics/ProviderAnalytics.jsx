@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Award, AlertTriangle, TrendingUp, CheckCircle, Clock } from 'lucide-react';
+import { Building2, Award, AlertTriangle } from 'lucide-react';
 
 export default function ProviderAnalytics({ data = {} }) {
   const providerStats = data.provider_stats || [];

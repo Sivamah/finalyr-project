@@ -1,17 +1,16 @@
 import React from 'react';
 
 /**
- * 8-factor horizontal progress bar breakdown.
+ * Factor-wise horizontal progress bar breakdown.
  * Each factor shows: name, value bar (0-100%), and numeric score.
  */
 
 const FACTOR_META = {
-  pickup:        { label: 'Pickup Distance',       color: 'bg-indigo-500' },
-  destination:   { label: 'Destination Similarity', color: 'bg-blue-500' },
-  route_overlap: { label: 'Route Overlap',          color: 'bg-cyan-500' },
-  time:          { label: 'Time Compatibility',     color: 'bg-green-500' },
-  capacity:      { label: 'Vehicle Capacity',       color: 'bg-amber-500' },
-  priority:      { label: 'Priority Score',         color: 'bg-orange-500' },
+  pickup:   { label: 'Pickup Proximity',    color: 'bg-indigo-500' },
+  route:    { label: 'Route Similarity',    color: 'bg-blue-500' },
+  time:     { label: 'Time Compatibility',  color: 'bg-green-500' },
+  capacity: { label: 'Vehicle Capacity',    color: 'bg-amber-500' },
+  priority: { label: 'Priority Score',      color: 'bg-orange-500' },
 };
 
 function FactorRow({ factorKey, score }) {

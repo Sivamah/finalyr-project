@@ -1,16 +1,14 @@
 import React, { useState, useEffect, useMemo, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  FileText, Cpu, Users, Fuel, Leaf, MapPin, Radio, Activity,
-  BrainCircuit, TrendingUp, Layers, Maximize, MousePointer2,
-  Clock, Wallet, Cloud, Settings2, BarChart2, Search, Bell, Calendar
+  FileText, Fuel, Leaf, Activity,
+  TrendingUp, Layers, Clock, Wallet, Cloud, BarChart2, Calendar
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { AreaChart, Area, PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../services/api';
 import LiveMapContainer from '../components/map/LiveMapContainer';
 import ActivityTimeline from '../components/notifications/ActivityTimeline';
 import AnimatedNumber from '../components/ui/AnimatedNumber';
-import StatusBadge from '../components/ui/StatusBadge';
 import { AuthContext } from '../context/AuthContext';
 
 const PIE_COLORS = ['#3B82F6', '#F59E0B', '#10B981'];
@@ -103,7 +101,7 @@ const KpiCard = ({ icon: Icon, label, value, format, tone, sparklineData, trend,
 };
 
 /* ── Operation Summary Component ────────────────────────────────────────── */
-const OperationSummary = ({ meta, data }) => {
+const OperationSummary = ({ data }) => {
   return (
     <div className="navy-glass-card p-5 overflow-hidden flex flex-col h-full">
       <div className="flex justify-between items-start mb-6 relative z-10">
@@ -147,60 +145,37 @@ const OperationSummary = ({ meta, data }) => {
 /* ── Main Dashboard Component ──────────────────────────────────────────── */
 export default function Dashboard() {
   const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [mapRequests, setMapRequests] = useState([]);
   const [charts, setCharts] = useState({});
   const [timeAnalytics, setTimeAnalytics] = useState(null);
-  const [aiMeta, setAiMeta] = useState({});
   const [timeline, setTimeline] = useState([]);
-  const [lastUpdated, setLastUpdated] = useState(null);
   const [mapFilter, setMapFilter] = useState('All');
+  const [selectedRequest, setSelectedRequest] = useState(null);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [statsRes, queueRes, chartsRes, xaiRes, tlRes, simRes] = await Promise.allSettled([
+        const [statsRes, queueRes, chartsRes, tlRes] = await Promise.allSettled([
           api.get('/dashboard/stats'),
           api.get('/simulation/queue?limit=120'),
           api.get('/simulation/advanced-analytics'),
-          api.get('/xai/explanations?limit=200'),
           api.get('/notifications/timeline?limit=8'),
-          api.get('/simulation/status'),
         ]);
 
         if (statsRes.status === 'fulfilled') setData(statsRes.value.data);
         if (queueRes.status === 'fulfilled') {
           const items = queueRes.value.data?.items || [];
           setMapRequests(items);
-          setLastUpdated(new Date());
         }
         if (chartsRes.status === 'fulfilled') {
           setCharts(chartsRes.value.data?.charts || {});
           setTimeAnalytics(chartsRes.value.data?.time_analytics || null);
         }
 
-        if (xaiRes.status === 'fulfilled') {
-          const items = xaiRes.value.data || [];
-          const n = items.length;
-          if (n > 0) {
-            const compat = items.reduce((s, e) => s + (e.factors?.overall_compatibility_score || 0), 0) / n;
-            const conf = items.reduce((s, e) => s + (e.confidence_score || 0), 0) / n;
-            setAiMeta({
-              avgCompatibility: Math.round(compat * 10) / 10,
-              avgConfidence: Math.round(conf * 10) / 10,
-            });
-          }
-        }
-
         if (tlRes.status === 'fulfilled') setTimeline(tlRes.value.data || []);
-
-        if (simRes.status === 'fulfilled') {
-          const s = simRes.value.data;
-          setAiMeta((prev) => ({ ...prev, engineOnline: s?.running || false }));
-        } else {
-          setAiMeta((prev) => ({ ...prev, engineOnline: false }));
-        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -248,7 +223,7 @@ export default function Dashboard() {
   const firstName = user?.full_name ? user.full_name.split(' ')[0] : 'Admin';
 
   return (
-    <div className="min-h-full text-white p-4 md:p-6 lg:p-8 relative overflow-hidden">
+    <div className="min-h-full text-white p-4 md:p-6 lg:p-8 relative overflow-x-hidden">
       {/* Ambient background glows */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 0 }}>
         <div className="absolute top-[-10%] left-[-5%] w-[50%] h-[50%] bg-brand-primary/10 rounded-full blur-[140px]" />
@@ -318,10 +293,6 @@ export default function Dashboard() {
                   <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
                   <span className="text-[11px] text-green-400 font-medium tracking-wide">Live</span>
                 </div>
-                <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg p-1">
-                  <button className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><Maximize className="h-3.5 w-3.5 text-white/60" /></button>
-                  <button className="p-1.5 hover:bg-white/10 rounded-md transition-colors"><Layers className="h-3.5 w-3.5 text-white/60" /></button>
-                </div>
               </div>
             </div>
 
@@ -347,20 +318,13 @@ export default function Dashboard() {
                ))}
             </div>
 
-            {/* Map Controls overlay bottom */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-black/40 backdrop-blur-2xl shadow-[0_4px_16px_rgba(0,0,0,0.5)] shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] border border-white/10 rounded-full p-1.5">
-              <button className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-colors"><MousePointer2 className="h-4 w-4" /></button>
-              <button className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-colors"><Search className="h-4 w-4" /></button>
-              <div className="w-px h-4 bg-white/20 mx-1" />
-              <button className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-colors"><Settings2 className="h-4 w-4" /></button>
-            </div>
-
             {/* The Map itself */}
             <div className="flex-1 rounded-xl overflow-hidden relative border border-white/5">
                <LiveMapContainer
                 requests={mapFilter === 'All' ? mapRequests : mapRequests.filter(r => r.request_type?.toLowerCase() === (mapFilter === 'Passenger' ? 'ride' : mapFilter.toLowerCase()))}
-                onSelectRequest={() => {}}
-                onClosePopup={() => {}}
+                selectedRequest={selectedRequest}
+                onSelectRequest={(req) => setSelectedRequest(req)}
+                onClosePopup={() => setSelectedRequest(null)}
                 className="w-full h-full"
               />
               <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_80px_rgba(10,11,15,0.8)]" />
@@ -370,13 +334,13 @@ export default function Dashboard() {
           {/* RIGHT: Operation Summary & Live Activity (30%) */}
           <div className="flex flex-col gap-6">
             <div className="h-[280px]">
-              <OperationSummary meta={aiMeta} data={data} />
+              <OperationSummary data={data} />
             </div>
             
             <div className="flex-1 navy-glass-card p-5 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[14px] font-semibold text-white">Live Activity</h3>
-                <span className="text-[11px] text-white/40 hover:text-white/70 cursor-pointer">View All</span>
+                <span onClick={() => navigate('/notifications')} className="text-[11px] text-white/40 hover:text-white/70 cursor-pointer">View All</span>
               </div>
               <div className="flex-1 overflow-hidden">
                 <ActivityTimeline timeline={timeline} />
@@ -467,12 +431,12 @@ export default function Dashboard() {
           </div>
 
           {/* Optimization Impact */}
-          <div className="navy-glass-card p-5">
+          <div className="navy-glass-card p-5 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[14px] font-semibold text-white">Optimization Impact</h3>
               <span className="px-2 py-1 bg-white/5 border border-white/10 rounded text-[10px] text-white/50">Today</span>
             </div>
-            <div className="grid grid-cols-2 gap-4 h-full">
+            <div className="grid grid-cols-2 gap-4 flex-1">
               <div className="bg-white/[0.02] rounded-xl p-3 flex flex-col">
                 <span className="text-[11px] text-white/50 mb-1">Fuel Saved</span>
                 <div className="flex items-baseline gap-1 mb-2">

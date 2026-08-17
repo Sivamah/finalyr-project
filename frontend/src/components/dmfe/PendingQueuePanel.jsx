@@ -22,7 +22,7 @@ function fmtTime(ts) {
   }
 }
 
-function RequestRow({ req, index }) {
+function RequestRow({ req }) {
   const cfg = TYPE_CONFIG[req.request_type] || TYPE_CONFIG.ride;
   const Icon = cfg.icon;
   const priClass = PRIORITY_BADGE[req.priority] || PRIORITY_BADGE.Medium;

@@ -51,7 +51,9 @@ METRICS = [
     ("MOBILITY", "avg_distance", "Avg trip distance (km)", "single_pass.trips.avg_distance_km", False),
     ("MOBILITY", "total_distance", "Total distance (km)", "single_pass.trips.total_distance_km", False),
     ("MOBILITY", "travel_time", "Avg travel time (min)", "single_pass.trips.avg_travel_time_min", False),
-    ("MOBILITY", "waiting", "Avg waiting time (min)", "single_pass.trips.avg_waiting_min", False),
+    # R3: the "waiting" row was dropped — framework.collect_metrics emits
+    # avg_waiting_min as an alias of avg_delay_min, so the two rows carried
+    # identical values and presented one measurement as two findings.
     ("MOBILITY", "delay", "Avg delay (min)", "single_pass.trips.avg_delay_min", False),
     # UTILIZATION
     ("UTILIZATION", "vehicle_util", "Avg vehicle utilisation %", "single_pass.trips.avg_utilization_pct", True),

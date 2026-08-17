@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Shield, Layers, ArrowUpRight } from 'lucide-react';
+import { Building2, Layers } from 'lucide-react';
 
 export default function ProviderConfiguration({ config = {}, providers = [], onChange }) {
   const enabledMap = config.provider_enabled_map || { '1': true, '2': true, '3': true };

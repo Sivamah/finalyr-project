@@ -3,6 +3,12 @@ import { Layers, AlertCircle } from 'lucide-react';
 import CandidateBatchCard from './CandidateBatchCard';
 
 export default function BatchesPanel({ batches = [], loading = false }) {
+  // The list holds every batch row the run created — shared batches AND the
+  // solo ("Individual") trips for requests that found no partner. Show the
+  // split so a screen full of solo trips is not read as "100 compatible".
+  const shared = batches.filter((b) => b.decision === 'Compatible').length;
+  const solo = batches.length - shared;
+
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl flex flex-col h-full shadow-sm">
       {/* Header */}
@@ -14,6 +20,9 @@ export default function BatchesPanel({ batches = [], loading = false }) {
             {batches.length}
           </span>
         </h3>
+        <span className="text-[11px] text-gray-400 font-medium tabular-nums">
+          {shared} shared · {solo} solo
+        </span>
       </div>
 
       {/* Batch list */}
@@ -26,7 +35,7 @@ export default function BatchesPanel({ batches = [], loading = false }) {
           <div className="flex flex-col items-center justify-center h-32 text-gray-500 gap-2">
             <AlertCircle className="h-7 w-7 opacity-30" />
             <p className="text-xs text-center">
-              No compatible batches found.<br />
+              No batches created yet.<br />
               Run DMFE Analysis to evaluate pending requests.
             </p>
           </div>

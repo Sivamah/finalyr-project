@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, FileSpreadsheet, FileText, Printer, CheckCircle, X } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Printer, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function ReportExport({ analyticsData = {}, filters = {} }) {
@@ -9,7 +9,6 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
     ? new Date(analyticsData.timestamp).toLocaleString()
     : new Date().toLocaleString();
 
-  const kpi = analyticsData.kpi || {};
   const reqAnalytics = analyticsData.request_analytics || {};
   const providerStats = analyticsData.provider_analytics?.provider_stats || [];
 
@@ -48,7 +47,7 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
 
       toast.success("CSV Report Exported Successfully");
       setModalOpen(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to export CSV report");
     }
   };
@@ -100,7 +99,7 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
 
       toast.success("Excel-compatible report (.xls HTML) Exported Successfully");
       setModalOpen(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to export Excel report");
     }
   };
@@ -193,7 +192,7 @@ export default function ReportExport({ analyticsData = {}, filters = {} }) {
       printWindow.document.close();
       toast.success("Printable PDF Report Generated");
       setModalOpen(false);
-    } catch (err) {
+    } catch {
       toast.error("Failed to generate PDF report");
     }
   };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, User, Clock, Tag } from 'lucide-react';
+import { History, User, Clock } from 'lucide-react';
 
 export default function AuditLog({ logs = [] }) {
   if (logs.length === 0) {

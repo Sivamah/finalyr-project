@@ -83,6 +83,42 @@ function LeafletBoundsFitter({ requests, trigger }) {
   return null;
 }
 
+// Keeps the Leaflet map viewport in sync with its container size — sidebar
+// toggles, fullscreen enter/exit and window resizes otherwise leave the
+// tile grid stale/grayed out because Leaflet caches its viewport size.
+function LeafletResizeWatcher() {
+  const map = useMap();
+  useEffect(() => {
+    const el = map.getContainer();
+    if (!el) return;
+    let raf = 0;
+    const invalidate = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => map.invalidateSize());
+    };
+    const ro = new ResizeObserver(invalidate);
+    ro.observe(el);
+    document.addEventListener('fullscreenchange', invalidate);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      document.removeEventListener('fullscreenchange', invalidate);
+    };
+  }, [map]);
+  return null;
+}
+
+// Hands the Leaflet map instance up to the parent so the overlay controls
+// (center/zoom) work in the no-Google-Key fallback mode too.
+function LeafletMapBridge({ onReady }) {
+  const map = useMap();
+  useEffect(() => {
+    onReady(map);
+    return () => onReady(null);
+  }, [map, onReady]);
+  return null;
+}
+
 export default function LiveMapContainer({
   requests = [],
   selectedRequest,
@@ -99,9 +135,14 @@ export default function LiveMapContainer({
   });
 
   const mapRef = useRef(null);
+  const leafletMapRef = useRef(null);
   const wrapperRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [leafletFitTrigger, setLeafletFitTrigger] = useState(0);
+
+  const setLeafletMap = useCallback((map) => {
+    leafletMapRef.current = map;
+  }, []);
 
   const onLoad = useCallback((map) => {
     mapRef.current = map;
@@ -129,22 +170,29 @@ export default function LiveMapContainer({
 
   // Recenter handler
   const handleRecenter = useCallback(() => {
-    if (mapRef.current) {
+    if (mapRef.current && window.google) {
       mapRef.current.panTo(COIMBATORE_CENTER);
       mapRef.current.setZoom(DEFAULT_ZOOM);
+    } else if (leafletMapRef.current) {
+      leafletMapRef.current.panTo([COIMBATORE_CENTER.lat, COIMBATORE_CENTER.lng]);
+      leafletMapRef.current.setZoom(DEFAULT_ZOOM);
     }
   }, []);
 
   // Zoom handlers
   const handleZoomIn = useCallback(() => {
-    if (mapRef.current) {
+    if (mapRef.current && window.google) {
       mapRef.current.setZoom(mapRef.current.getZoom() + 1);
+    } else if (leafletMapRef.current) {
+      leafletMapRef.current.setZoom(leafletMapRef.current.getZoom() + 1);
     }
   }, []);
 
   const handleZoomOut = useCallback(() => {
-    if (mapRef.current) {
+    if (mapRef.current && window.google) {
       mapRef.current.setZoom(mapRef.current.getZoom() - 1);
+    } else if (leafletMapRef.current) {
+      leafletMapRef.current.setZoom(leafletMapRef.current.getZoom() - 1);
     }
   }, []);
 
@@ -152,10 +200,42 @@ export default function LiveMapContainer({
   const toggleFullscreen = useCallback(() => {
     if (!wrapperRef.current) return;
     if (!document.fullscreenElement) {
-      wrapperRef.current.requestFullscreen().then(() => setIsFullscreen(true)).catch(() => {});
+      wrapperRef.current.requestFullscreen().catch(() => {});
     } else {
-      document.exitFullscreen().then(() => setIsFullscreen(false)).catch(() => {});
+      document.exitFullscreen().catch(() => {});
     }
+  }, []);
+
+  // Keep the fullscreen state in sync with the real document state (also
+  // covers exiting fullscreen with the Esc key).
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  // Google Maps also caches its viewport: re-trigger the resize event
+  // whenever the wrapper's size changes (sidebar toggles, fullscreen).
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    let raf = 0;
+    const invalidate = () => {
+      const map = mapRef.current;
+      if (!map) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (window.google?.maps?.event) window.google.maps.event.trigger(map, 'resize');
+      });
+    };
+    const ro = new ResizeObserver(invalidate);
+    ro.observe(el);
+    document.addEventListener('fullscreenchange', invalidate);
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      document.removeEventListener('fullscreenchange', invalidate);
+    };
   }, []);
 
   // ── Render Google Map if loaded and valid ──────────────────────────────────
@@ -199,6 +279,8 @@ export default function LiveMapContainer({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <LeafletBoundsFitter requests={requests} trigger={leafletFitTrigger} />
+          <LeafletResizeWatcher />
+          <LeafletMapBridge onReady={setLeafletMap} />
 
           {requests.map((req) => {
             if (!req.pickup_lat || !req.pickup_lng) return null;

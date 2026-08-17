@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bike, Utensils, Package, MapPin, Activity, Clock, ShieldAlert, X } from 'lucide-react';
+import { Bike, Utensils, Package, MapPin, X } from 'lucide-react';
 
 const TYPE_META = {
   ride: { label: 'Ride', color: 'bg-blue-600', textColor: 'text-blue-400', Icon: Bike },

@@ -206,9 +206,11 @@ def generate_simulation_requests(
     if total > 0:
         request_types = {k: v / total for k, v in request_types.items()}
 
-    # FIX BUG 1: base_time within last 5 minutes so cluster timestamps
-    # are naturally close to each other.
-    base_time = datetime.utcnow() - timedelta(minutes=random.randint(0, 5))
+    # FIX BUG 1: base_time anchored far enough in the past that the widest
+    # timestamp spread (city-wide requests add up to 45 min) never lands in
+    # the future.  Only pairwise differences matter to the batch gates, so
+    # shifting the anchor preserves every time-window decision exactly.
+    base_time = datetime.utcnow() - timedelta(minutes=random.randint(50, 60))
 
     # Forced single-cluster burst: all requests share one pickup cluster and
     # staggered timestamps inside the configured window.

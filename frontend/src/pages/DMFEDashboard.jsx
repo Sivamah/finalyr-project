@@ -23,6 +23,7 @@ export default function DMFEDashboard() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [activeTab, setActiveTab] = useState('batches');
   const [demoMode, setDemoMode] = useState(false);
+  const [seeding, setSeeding] = useState(false);
 
   const autoRefreshRef = useRef(null);
 
@@ -49,16 +50,34 @@ export default function DMFEDashboard() {
   const fetchBatches = useCallback(async () => {
     try {
       const demoParam = demoMode ? '&demo_only=true' : '';
-      const [compatRes, rejRes] = await Promise.all([
+      // The pipeline dispatches analysis batches (Pending -> Dispatched), so
+      // a Pending-only fetch makes the "Compatible Batches" tab go empty the
+      // moment a run completes.  Show both so created batches stay visible.
+      const [compatRes, dispatchedRes, rejRes] = await Promise.all([
         api.get(`/dmfe/batches?status=Pending&limit=50${demoParam}`),
+        api.get(`/dmfe/batches?status=Dispatched&limit=50${demoParam}`),
         api.get(`/dmfe/batches?status=Rejected&limit=50${demoParam}`),
       ]);
-      if (!lastResult) {
-        setCompatBatches(compatRes.data || []);
-        setRejectedBatches(rejRes.data || []);
+      const merged = [...(compatRes.data || []), ...(dispatchedRes.data || [])];
+      const seen = new Set();
+      const deduped = [];
+      // Solo ("Individual") rows are persisted LAST in each run
+      // (decision_engine.py Phase 9), so they always carry the highest ids.
+      // Sorting by id alone therefore buries every shared batch below every
+      // solo trip and the tab looks like it produced nothing but solo trips.
+      // Rank shared batches first, then newest-first within each group.
+      const rank = (b) => (b.decision === 'Compatible' ? 0 : 1);
+      const byRankThenId = (x, y) => rank(x) - rank(y) || (y.id || 0) - (x.id || 0);
+      for (const b of merged.sort(byRankThenId)) {
+        if (!seen.has(b.id)) {
+          seen.add(b.id);
+          deduped.push(b);
+        }
       }
+      setCompatBatches(deduped);
+      setRejectedBatches(rejRes.data || []);
     } catch { /* silent */ }
-  }, [lastResult, demoMode]);
+  }, [demoMode]);
 
   const fetchHistory = useCallback(async () => {
     try {
@@ -87,6 +106,44 @@ export default function DMFEDashboard() {
     return () => clearInterval(autoRefreshRef.current);
   }, [autoRefresh, fetchPendingQueue, fetchStats]);
 
+  /**
+   * Demo Mode filters the queue and the batch list to requests tagged
+   * "[A-DMFE Demo Scenario]" on pickup_address. Nothing in the application
+   * used to create such a row — the only producer was the standalone script
+   * backend/scripts/verify_demo.py — so the toggle always showed two empty
+   * panels. This seeds the curated scenario through POST /api/dmfe/demo/seed.
+   *
+   * The seeded rows are ordinary Pending requests: the engine scores them with
+   * the same code path as live traffic, so the demo shows real behaviour.
+   */
+  const handleSeedDemo = async () => {
+    if (seeding) return;
+    setSeeding(true);
+    try {
+      const res = await api.post('/dmfe/demo/seed');
+      toast.success(res.data?.message || 'Demo scenario seeded');
+      await Promise.all([fetchPendingQueue(), fetchBatches(), fetchStats()]);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Could not seed the demo scenario');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  const handleClearDemo = async () => {
+    if (seeding) return;
+    setSeeding(true);
+    try {
+      const res = await api.delete('/dmfe/demo/clear');
+      toast.success(res.data?.message || 'Demo requests cleared');
+      await Promise.all([fetchPendingQueue(), fetchBatches(), fetchStats()]);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Could not clear the demo scenario');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const handleRunAnalysis = async () => {
     if (analyzing) return;
     setAnalyzing(true);
@@ -109,7 +166,7 @@ export default function DMFEDashboard() {
   };
 
   const TABS = [
-    { id: 'batches', label: 'Compatible Batches', icon: Layers, count: compatBatches.length },
+    { id: 'batches', label: 'Created Batches', icon: Layers, count: compatBatches.length },
     { id: 'rejected', label: 'Rejected', icon: XCircle, count: rejectedBatches.length },
     { id: 'history', label: 'Analysis History', icon: History, count: history.length },
   ];
@@ -168,8 +225,33 @@ export default function DMFEDashboard() {
       />
 
       {demoMode && (
-        <div className="bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2 rounded-lg flex items-center justify-center font-bold text-sm tracking-wide shadow-sm">
-          ⚠️ DEMO MODE — showing curated scenario only
+        <div className="bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-3 rounded-lg flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm shadow-sm">
+          <span className="font-bold tracking-wide">
+            ⚠️ DEMO MODE — showing the curated scenario only
+          </span>
+          <span className="text-amber-400/70 text-[12px]">
+            {pendingRequests.length === 0
+              ? 'No demo requests in the queue yet — seed the scenario to populate it.'
+              : `${pendingRequests.length} demo request${pendingRequests.length !== 1 ? 's' : ''} pending. Run Analysis to batch them.`}
+          </span>
+          <span className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSeedDemo}
+              disabled={seeding}
+              className="btn-glass !text-amber-300 !border-amber-400/50 !bg-amber-400/10 disabled:opacity-50"
+            >
+              {seeding ? 'Working…' : 'Seed demo scenario'}
+            </button>
+            <button
+              type="button"
+              onClick={handleClearDemo}
+              disabled={seeding}
+              className="btn-glass !text-amber-300/70 !border-amber-400/30 disabled:opacity-50"
+            >
+              Clear
+            </button>
+          </span>
         </div>
       )}
 

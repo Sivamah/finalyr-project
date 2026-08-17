@@ -38,13 +38,23 @@ METRIC_LABELS = [
     ("single_pass.trips.co2_reduction_vs_internal_baseline_pct", "CO2 reduction (%)"),
     ("single_pass.trips.total_distance_km", "Total distance (km)"),
     ("single_pass.trips.avg_travel_time_min", "Avg travel time (min)"),
-    ("single_pass.trips.avg_waiting_min", "Avg waiting (min)"),
-    ("single_pass.trips.requests_completed", "Requests completed"),
-    ("single_pass.trips.requests_failed", "Requests failed"),
+    # R3: "Avg waiting (min)" removed — framework.collect_metrics emits
+    # avg_waiting_min as an ALIAS of avg_delay_min (both are
+    # mean(trip.max_delay_min)), so publishing both printed one measurement
+    # as two independent results with identical values in every row.
+    # "Avg delay (min)" below is the single, correct row for this quantity.
+    # R4: relabelled — these count requests that reached "Assigned"
+    # (DISPATCHED) or "Completed".  A dispatched request has not necessarily
+    # finished, so this is a dispatch-success count, not a completion rate.
+    ("single_pass.trips.requests_completed", "Requests dispatched"),
+    ("single_pass.trips.requests_failed", "Requests undispatched"),
     ("single_pass.drivers.driver_pool_utilization_pct", "Driver pool utilisation (%)"),
     ("single_pass.batches.avg_compatibility_score", "Avg batch compatibility"),
     ("single_pass.batches.std_compatibility_score", "Compatibility std"),
-    ("waves.completion_rate_pct", "Waves completion (%)"),
+    # R4: counts r.status in ("Assigned", "Completed") — i.e. every request
+    # the engine managed to dispatch. Labelled as a dispatch rate so it is
+    # not read as "requests that finished their trip".
+    ("waves.completion_rate_pct", "Waves dispatch rate (%)"),
     ("waves.total_fuel_l", "Waves total fuel (L)"),
     ("single_pass.trips.batching_rate_pct", "Batching rate (%)"),
     ("single_pass.trips.avg_delay_min", "Avg delay (min)"),
@@ -68,7 +78,7 @@ LOWER_BETTER = {
     "single_pass.trips.co2_emitted_kg": True,
     "single_pass.trips.total_distance_km": True,
     "single_pass.trips.avg_travel_time_min": True,
-    "single_pass.trips.avg_waiting_min": True,
+    # R3: avg_waiting_min is no longer published (alias of avg_delay_min).
     "single_pass.trips.avg_delay_min": True,
     "single_pass.trips.requests_failed": True,
     "waves.total_distance_km": True,
@@ -177,7 +187,9 @@ def write_per_workload(static: dict, adaptive: dict) -> str:
     header = ["workload", "mode", "shared_trips", "individual_trips",
               "unassigned", "avg_compatibility_score", "avg_requests_per_batch",
               "max_requests_per_batch", "avg_route_distance_km",
-              "avg_travel_time_min", "avg_waiting_min", "avg_delay_min",
+              # R3: the avg_waiting_min column was dropped — it carried the
+              # same values as avg_delay_min in every row.
+              "avg_travel_time_min", "avg_delay_min",
               "batching_rate_pct", "vehicle_utilization_pct",
               "driver_pool_utilization_pct",
               "fuel_l", "fuel_saved_l", "co2_kg", "co2_saved_kg",
@@ -209,7 +221,6 @@ def write_per_workload(static: dict, adaptive: dict) -> str:
                     bch.get("max_requests_per_batch"),
                     trips.get("avg_distance_km"),
                     trips.get("avg_travel_time_min"),
-                    trips.get("avg_waiting_min"),
                     trips.get("avg_delay_min"),
                     trips.get("batching_rate_pct"),
                     trips.get("avg_utilization_pct"),
@@ -277,7 +288,8 @@ def write_baseline(static: dict, adaptive: dict) -> str:
         ("total_co2_kg", "co2_emitted_kg", "co2_emitted_kg"),
         ("avg_utilization_pct", "avg_utilization_pct", "avg_utilization_pct"),
         ("avg_travel_time_min", "avg_travel_time_min", "avg_travel_time_min"),
-        ("avg_waiting_min", "avg_waiting_min", "avg_waiting_min"),
+        # R3: avg_waiting_min row removed — alias of avg_delay_min.
+        ("avg_delay_min", "avg_delay_min", "avg_delay_min"),
         ("avg_processing_ms", "avg_processing_ms_per_request",
          "avg_processing_ms_per_request"),
         ("requests_completed", "requests_completed", "requests_completed"),
@@ -552,12 +564,15 @@ def write_graphs(static: dict, adaptive: dict) -> None:
             "static_batch_formation_s": series(static, "timing.batch_formation_total_s"),
             "adaptive_batch_formation_s": series(adaptive, "timing.batch_formation_total_s"),
         },
+        # R3: filename kept so existing consumers of results/graphs/ do not
+        # break, but the title and series now name what is actually plotted:
+        # mean trip delay (trip.max_delay_min), not passenger waiting time.
         "waiting_time.json": {
-            "title": "Average Waiting Time",
+            "title": "Average Trip Delay",
             "x": wl,
             "baseline": [0.0 for _ in wl],
-            "static": series(static, "single_pass.trips.avg_waiting_min"),
-            "adaptive": series(adaptive, "single_pass.trips.avg_waiting_min"),
+            "static": series(static, "single_pass.trips.avg_delay_min"),
+            "adaptive": series(adaptive, "single_pass.trips.avg_delay_min"),
             "static_shared": series(static, "single_pass.trips.avg_shared_waiting_min"),
             "adaptive_shared": series(adaptive, "single_pass.trips.avg_shared_waiting_min"),
         },

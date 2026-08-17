@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bike, Utensils, Package, BrainCircuit, CheckCircle2, AlertCircle, Clock, Sparkles } from 'lucide-react';
+import { Bike, Utensils, Package, BrainCircuit } from 'lucide-react';
 
 const TYPE_META = {
   ride: { label: 'Ride', bgClass: 'bg-blue-600', Icon: Bike },

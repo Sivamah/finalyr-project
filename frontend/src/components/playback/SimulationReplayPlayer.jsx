@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, Pause, Square, RotateCcw, FastForward, Clock, X, Activity, Layers } from 'lucide-react';
+import { Play, Pause, Square, FastForward, X, Activity, Layers } from 'lucide-react';
 
 export default function SimulationReplayPlayer({ simulation, onClose }) {
   const [isPlaying, setIsPlaying] = useState(false);

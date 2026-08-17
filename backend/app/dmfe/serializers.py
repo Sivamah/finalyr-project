@@ -128,14 +128,21 @@ def batch_requests_summary(db, request_ids: List[int]) -> List[Dict[str, Any]]:
     return summary
 
 
-def batch_to_dict(b: DMFEBatch, db: Optional[Any] = None) -> Dict[str, Any]:
+def batch_to_dict(b: DMFEBatch, db: Optional[Any] = None, request_by_id: Optional[Dict[int, Any]] = None) -> Dict[str, Any]:
     request_ids = json_loads(b.request_ids_json, [])
+    if request_by_id is not None:
+        requests_summary = [
+            {**request_summary(request_by_id[rid]), "weight_kg": request_by_id[rid].weight_kg}
+            for rid in request_ids if rid in request_by_id
+        ]
+    else:
+        requests_summary = batch_requests_summary(db, request_ids)
     return {
         "id": b.id,
         "batch_code": b.batch_code,
         "analysis_run_id": b.analysis_run_id,
         "request_ids": request_ids,
-        "requests_summary": batch_requests_summary(db, request_ids),
+        "requests_summary": requests_summary,
         "compatibility_score": b.compatibility_score,
         "decision": b.decision,
         "reasons": json_loads(b.reason_json, []),

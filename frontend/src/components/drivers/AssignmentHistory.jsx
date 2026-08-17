@@ -1,5 +1,5 @@
 import React from 'react';
-import { History, User, Truck, Clock, CheckCircle2 } from 'lucide-react';
+import { History, User, Truck, Clock } from 'lucide-react';
 
 export default function AssignmentHistory({ history = [] }) {
   if (history.length === 0) {

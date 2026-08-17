@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Layers, Download, Trash2, Clock, CheckCircle2, CheckSquare, Square } from 'lucide-react';
+import { Play, Download, Trash2, CheckSquare, Square } from 'lucide-react';
 
 export default function SavedSimulationsTable({
   simulations = [],

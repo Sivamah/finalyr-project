@@ -30,15 +30,26 @@ function RequestPill({ req }) {
 export default function CandidateBatchCard({ batch }) {
   const [expanded, setExpanded] = useState(false);
 
-  const isCompatible = batch.decision === 'Compatible';
-  const borderColor = isCompatible
-    ? 'border-green-500/30 ring-1 ring-green-500/10'
-    : 'border-red-500/20';
-  const badgeCls = isCompatible
-    ? 'bg-green-500/15 text-green-400 border-green-500/30'
-    : 'bg-red-500/15 text-red-400 border-red-500/30';
-
   const requests = batch.requests_summary || [];
+
+  // A solo / "Individual" trip has no PAIR, so there is no pairwise
+  // compatibility score to show.  The engine persists compatibility_score = 0.0
+  // for these rows purely as a sentinel (decision_engine.py, Phase 9).  Painting
+  // that 0.0 as a red "Incompatible" gauge misreports "not applicable" as
+  // "measured and failed", and contradicts the "Individual" badge beside it.
+  const isIndividual = batch.decision === 'Individual' || requests.length < 2;
+  const isCompatible = batch.decision === 'Compatible';
+
+  const borderColor = isIndividual
+    ? 'border-gray-600/50'
+    : isCompatible
+      ? 'border-green-500/30 ring-1 ring-green-500/10'
+      : 'border-red-500/20';
+  const badgeCls = isIndividual
+    ? 'bg-gray-500/15 text-gray-300 border-gray-500/30'
+    : isCompatible
+      ? 'bg-green-500/15 text-green-400 border-green-500/30'
+      : 'bg-red-500/15 text-red-400 border-red-500/30';
 
   return (
     <div className={`bg-gray-800 border ${borderColor} rounded-xl shadow-sm overflow-hidden`}>
@@ -51,6 +62,11 @@ export default function CandidateBatchCard({ batch }) {
             <span className={`text-[10px] px-2 py-0.5 rounded border font-bold ${badgeCls}`}>
               {batch.decision}
             </span>
+            {batch.status === 'Dispatched' && (
+              <span className="text-[10px] px-2 py-0.5 rounded border font-bold bg-blue-500/15 text-blue-400 border-blue-500/30">
+                Dispatched
+              </span>
+            )}
             {batch.estimated_delay_min > 0 && (
               <span className="flex items-center gap-1 text-[10px] text-gray-400">
                 <Clock className="h-3 w-3" /> +{batch.estimated_delay_min} min delay
@@ -59,7 +75,11 @@ export default function CandidateBatchCard({ batch }) {
           </div>
 
           {/* Gauge */}
-          <CompatibilityGauge score={batch.compatibility_score} size={88} />
+          <CompatibilityGauge
+            score={isIndividual ? null : batch.compatibility_score}
+            naLabel="Solo trip"
+            size={88}
+          />
         </div>
 
         {/* Included requests pills */}

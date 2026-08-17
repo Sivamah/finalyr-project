@@ -21,16 +21,36 @@ export default function AIDashboard() {
     finally { setLoading(false); }
   };
 
+  /**
+   * Runs the A-DMFE pipeline — the same engine the Feasibility Engine page
+   * drives. This page is the ROUTING view of that one engine's output.
+   *
+   * It used to call POST /orchestration/optimize, a second, legacy optimizer.
+   * That endpoint selected every request with status "Pending" and set them to
+   * "Optimized" — a status nothing reads — which silently and permanently
+   * drained the A-DMFE queue on every click. It is now retired (HTTP 410).
+   */
   const runOptimization = async () => {
     setRunning(true);
     try {
-      await api.post('/orchestration/simulate?count=15');
-      const res = await api.post('/orchestration/optimize');
-      setResults(res.data);
-      toast.success(`Optimization complete: ${res.data.length} batches`);
+      // Seed work only if the queue is empty, so a click never inflates an
+      // in-progress simulation with extra synthetic demand.
+      const queue = await api.get('/simulation/queue?limit=1');
+      if ((queue.data?.items?.length ?? 0) === 0) {
+        await api.post('/orchestration/simulate?count=15');
+      }
+
+      const res = await api.post('/dmfe/analyze');
+      const created = res.data?.batches_created ?? 0;
+      const rejected = res.data?.rejected_count ?? 0;
+
+      // /dmfe/analyze returns feasibility batches; the routed trips it
+      // produced are read back from the results endpoint.
+      await fetchResults();
       setSelected(null);
+      toast.success(`A-DMFE run complete: ${created} batch${created !== 1 ? 'es' : ''} created, ${rejected} rejected`);
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Optimization failed. Ensure providers and vehicles exist.');
+      toast.error(err.response?.data?.detail || 'A-DMFE run failed. Ensure providers, vehicles and drivers exist.');
     }
     finally { setRunning(false); }
   };
@@ -46,7 +66,7 @@ export default function AIDashboard() {
       <PageHeader
         eyebrow="Intelligence"
         title="Orchestration Engine"
-        description="Dynamic Multi-Service Feasibility Engine — batch requests by compatibility and let OR-Tools route them."
+        description="Routing output of the A-DMFE engine — compatible requests batched, then routed by OR-Tools. Scoring decisions are shown on the Feasibility Engine page."
         actions={
           <div className="flex gap-2.5">
             <button onClick={fetchResults} className="btn-glass">

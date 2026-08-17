@@ -1,15 +1,10 @@
 import React from 'react';
-import { Bike, Utensils, Package, Navigation, Clock, PieChart, AlertCircle } from 'lucide-react';
+import { Bike, Utensils, Package, Navigation, Clock, PieChart } from 'lucide-react';
 
 export default function RequestAnalytics({ data = {} }) {
   const rideCount = data.total_ride_requests ?? 0;
   const foodCount = data.total_food_requests ?? 0;
   const parcelCount = data.total_parcel_requests ?? 0;
-  const totalCount = rideCount + foodCount + parcelCount || 1;
-
-  const ridePct = Math.round((rideCount / totalCount) * 100);
-  const foodPct = Math.round((foodCount / totalCount) * 100);
-  const parcelPct = Math.round((parcelCount / totalCount) * 100);
 
   const completionRate = data.completion_rate_pct ?? 0;
   const pendingRate = data.pending_rate_pct ?? 0;

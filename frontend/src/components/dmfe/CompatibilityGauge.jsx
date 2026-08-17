@@ -1,11 +1,17 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 
 /**
  * Animated SVG arc gauge showing compatibility score 0–100%.
  * Color: red < 50, amber 50–70, green >= 70.
+ *
+ * Pass score={null} when NO pairwise score exists (e.g. a solo/Individual
+ * trip).  The engine persists compatibility_score = 0.0 for those rows as a
+ * "not applicable" sentinel, not as a measured value — rendering it as a red
+ * "0.0% Incompatible" arc reports an unmeasured quantity as a measured one.
  */
-export default function CompatibilityGauge({ score = 0, size = 120 }) {
-  const clampedScore = Math.max(0, Math.min(100, score));
+export default function CompatibilityGauge({ score = 0, size = 120, naLabel = 'Not scored' }) {
+  const isNA = score === null || score === undefined || Number.isNaN(Number(score));
+  const clampedScore = isNA ? 0 : Math.max(0, Math.min(100, score));
 
   // Arc geometry
   const cx = size / 2;
@@ -17,7 +23,9 @@ export default function CompatibilityGauge({ score = 0, size = 120 }) {
 
   // Color thresholds
   let color, textColor;
-  if (clampedScore >= 70) {
+  if (isNA) {
+    color = '#6b7280'; textColor = 'text-gray-400';
+  } else if (clampedScore >= 70) {
     color = '#22c55e'; textColor = 'text-green-400';
   } else if (clampedScore >= 50) {
     color = '#f59e0b'; textColor = 'text-amber-400';
@@ -26,7 +34,9 @@ export default function CompatibilityGauge({ score = 0, size = 120 }) {
   }
 
   // Decision label
-  const label = clampedScore >= 70 ? 'Compatible' : clampedScore >= 50 ? 'Marginal' : 'Incompatible';
+  const label = isNA
+    ? naLabel
+    : clampedScore >= 70 ? 'Compatible' : clampedScore >= 50 ? 'Marginal' : 'Incompatible';
 
   return (
     <div className="flex flex-col items-center gap-1">
@@ -52,7 +62,7 @@ export default function CompatibilityGauge({ score = 0, size = 120 }) {
           strokeWidth={strokeWidth}
           strokeLinecap="round"
           strokeDasharray={circumference}
-          strokeDashoffset={dashOffset}
+          strokeDashoffset={isNA ? circumference : dashOffset}
           style={{ transition: 'stroke-dashoffset 0.8s ease' }}
         />
         {/* Score text */}
@@ -66,7 +76,7 @@ export default function CompatibilityGauge({ score = 0, size = 120 }) {
           fontFamily="monospace"
           fill={color}
         >
-          {clampedScore.toFixed(1)}%
+          {isNA ? 'N/A' : `${clampedScore.toFixed(1)}%`}
         </text>
       </svg>
       <span className={`text-[11px] font-bold ${textColor}`}>{label}</span>

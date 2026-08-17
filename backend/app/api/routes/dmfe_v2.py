@@ -8,6 +8,8 @@ Endpoints:
   GET  /api/dmfe/batches      — list persisted DMFE batches
   GET  /api/dmfe/history      — list analysis run summaries
   GET  /api/dmfe/statistics   — aggregate statistics
+  POST /api/dmfe/demo/seed    — seed the curated demo scenario
+  DEL  /api/dmfe/demo/clear   — remove pending demo-scenario requests
 
 All routes require authentication (Bearer token).
 No OR-Tools, no vehicle assignment, no routing.
@@ -23,6 +25,32 @@ from app.dmfe.decision_engine import decision_engine
 from app.dmfe.serializers import batch_to_dict, run_to_dict
 
 router = APIRouter(prefix="/api/dmfe", tags=["DMFE"])
+
+# Demo-scenario requests are tagged by this prefix on pickup_address. Both
+# GET /api/dmfe/batches?demo_only=true and GET /api/simulation/queue?demo_only=true
+# filter on it. Keep the three in sync — if this string changes, Demo Mode
+# silently returns an empty set rather than erroring.
+DEMO_TAG = "[A-DMFE Demo Scenario]"
+
+# Curated, fully deterministic scenario. No randomness, so every demo run
+# produces the same batching decisions and the walkthrough is reproducible.
+# All coordinates lie inside COIMBATORE_BOUNDS (app/core/coimbatore.py:
+# lat 10.95-11.15, lng 76.85-77.05).
+#
+# Designed to exercise three distinct engine outcomes:
+#   pairs 1+2 : same-service (ride), near pickups, near drops  -> should batch
+#   pairs 3+4 : same-service (food), near pickups, near drops   -> should batch
+#   5         : parcel, isolated corridor                       -> solo trip
+#   6         : ride, far from everything                       -> solo trip
+DEMO_SCENARIO = [
+    # (type, pickup_name, p_lat, p_lng, drop_name, d_lat, d_lng, priority, demand)
+    ("ride",   "Gandhipuram Bus Stand", 11.0168, 76.9558, "Peelamedu",          11.0300, 77.0000, "Medium", 1),
+    ("ride",   "Gandhipuram Signal",    11.0180, 76.9570, "Peelamedu Tech Park", 11.0310, 77.0010, "Medium", 1),
+    ("food",   "Race Course",           11.0050, 76.9650, "R.S. Puram",          11.0080, 76.9500, "High",   1),
+    ("food",   "Race Course Road",      11.0060, 76.9660, "R.S. Puram West",     11.0090, 76.9510, "Medium", 1),
+    ("parcel", "Singanallur",           11.0000, 77.0280, "Ondipudur",           10.9950, 77.0400, "Low",    2),
+    ("ride",   "Kalapatti",             11.0570, 77.0250, "Saravanampatti",      11.0780, 76.9990, "Medium", 1),
+]
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────
@@ -80,8 +108,26 @@ def list_batches(
         batches = filtered_batches
     else:
         batches = q.order_by(DMFEBatch.created_at.desc()).limit(limit).all()
-        
-    return [batch_to_dict(b, db) for b in batches]
+
+    from app.db.models import SimulationRequest
+    from app.core.json_utils import json_loads
+
+    # Prefetch every referenced request in one query instead of one query
+    # per batch (batch_to_dict → batch_requests_summary).
+    req_ids = {
+        rid
+        for b in batches
+        for rid in json_loads(b.request_ids_json, [])
+    }
+    request_by_id = {}
+    if req_ids:
+        request_by_id = {
+            r.id: r
+            for r in db.query(SimulationRequest)
+            .filter(SimulationRequest.id.in_(req_ids))
+            .all()
+        }
+    return [batch_to_dict(b, db, request_by_id) for b in batches]
 
 
 @router.get("/batches/{batch_id}")
@@ -168,4 +214,103 @@ def get_dmfe_statistics(db: SessionDep, current_user: CurrentUser):
         "avg_compatibility_score": round(float(avg_score), 1),
         "latest_threshold": latest_run.threshold_used if latest_run else 70.0,
         "last_run_at": latest_run.run_at.strftime("%Y-%m-%d %I:%M %p") if latest_run else None,
+    }
+
+
+# ── Demo scenario ──────────────────────────────────────────────────────────
+#
+# Demo Mode in the UI filters the queue and the batch list to requests tagged
+# with DEMO_TAG. Before these endpoints existed, nothing in the running
+# application ever created such a row — the only producer was the standalone
+# script backend/scripts/verify_demo.py — so toggling Demo Mode on always
+# yielded two empty panels. These endpoints make the toggle self-sufficient.
+
+@router.post("/demo/seed")
+def seed_demo_scenario(db: SessionDep, current_user: CurrentUser):
+    """
+    Insert the curated demo scenario as ordinary Pending requests.
+
+    The rows are real SimulationRequest records — the engine treats them
+    exactly like any other request, so what the demo shows is genuine engine
+    behaviour, not a scripted animation. They are only distinguishable by the
+    DEMO_TAG prefix on pickup_address, which is what Demo Mode filters on.
+
+    Idempotent: any still-Pending demo requests are cleared first, so repeated
+    clicks re-seed rather than accumulate duplicates.
+    """
+    from app.db.models import SimulationRequest, Provider
+    from app.engine.distance import haversine
+
+    removed = (
+        db.query(SimulationRequest)
+        .filter(SimulationRequest.pickup_address.like(f"{DEMO_TAG}%"))
+        .filter(SimulationRequest.status == "Pending")
+        .delete(synchronize_session=False)
+    )
+
+    provider = (
+        db.query(Provider).filter(Provider.status == "Active").order_by(Provider.id).first()
+    )
+    provider_id = provider.id if provider else None
+
+    created_ids = []
+    for (rtype, p_name, p_lat, p_lng, d_name, d_lat, d_lng, priority, demand) in DEMO_SCENARIO:
+        req = SimulationRequest(
+            provider_id=provider_id,
+            request_type=rtype,
+            pickup_lat=p_lat,
+            pickup_lng=p_lng,
+            drop_lat=d_lat,
+            drop_lng=d_lng,
+            pickup_address=f"{DEMO_TAG} {p_name}",
+            drop_address=d_name,
+            demand=demand,
+            priority=priority,
+            estimated_distance_km=round(haversine(p_lat, p_lng, d_lat, d_lng), 2),
+            status="Pending",
+        )
+        db.add(req)
+        db.flush()
+        created_ids.append(req.id)
+
+    db.commit()
+    return {
+        "created": len(created_ids),
+        "cleared_stale": removed,
+        "request_ids": created_ids,
+        "provider_id": provider_id,
+        "message": (
+            f"{len(created_ids)} demo requests seeded. "
+            "Run Analysis to see the engine batch them."
+        ),
+    }
+
+
+@router.delete("/demo/clear")
+def clear_demo_scenario(db: SessionDep, current_user: CurrentUser):
+    """
+    Remove demo requests that are still Pending.
+
+    Demo requests already picked up by a run are left alone — deleting them
+    would orphan the batch and trip rows that reference them, and would alter
+    statistics the engine has already recorded.
+    """
+    from app.db.models import SimulationRequest
+
+    pending_q = (
+        db.query(SimulationRequest)
+        .filter(SimulationRequest.pickup_address.like(f"{DEMO_TAG}%"))
+    )
+    total = pending_q.count()
+    removed = pending_q.filter(SimulationRequest.status == "Pending").delete(
+        synchronize_session=False
+    )
+    db.commit()
+    return {
+        "removed": removed,
+        "kept_already_processed": total - removed,
+        "message": (
+            f"{removed} pending demo requests removed. "
+            f"{total - removed} already processed and left intact."
+        ),
     }

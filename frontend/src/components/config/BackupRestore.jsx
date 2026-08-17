@@ -18,7 +18,7 @@ export default function BackupRestore({ onExport, onImport, onReset }) {
           return;
         }
         onImport(json);
-      } catch (err) {
+      } catch {
         toast.error('Failed to parse JSON file');
       }
     };

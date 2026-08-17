@@ -30,7 +30,7 @@ export default function ProviderManagement() {
     try {
       const res = await api.get('/providers/');
       setProviders(res.data);
-    } catch (err) {
+    } catch {
       toast.error('Failed to load providers');
     } finally {
       setLoading(false);

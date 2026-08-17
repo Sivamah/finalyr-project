@@ -1,5 +1,5 @@
 import React from 'react';
-import { Filter, Calendar, RotateCcw, Building2, Layers, Activity } from 'lucide-react';
+import { Filter, RotateCcw, Building2, Layers, Activity } from 'lucide-react';
 
 export default function AnalyticsFilters({
   filters,

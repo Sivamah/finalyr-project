@@ -24,6 +24,7 @@ const NAV_GROUPS = [
     items: [
       { to: '/analytics', icon: BarChart3, label: 'Analytics' },
       { to: '/xai', icon: BrainCircuit, label: 'AI Insights' },
+      { to: '/ai-orchestration', icon: Cpu, label: 'AI Orchestration' },
       { to: '/playback', icon: Film, label: 'Reports' },
     ],
   },
@@ -45,6 +46,7 @@ const ROUTE_TITLES = {
   '/drivers': 'Fleet',
   '/analytics': 'Analytics',
   '/xai': 'AI Insights',
+  '/ai-orchestration': 'AI Orchestration',
   '/playback': 'Reports',
   '/simulation-monitor': 'Simulation Monitor',
   '/providers': 'Providers',
@@ -296,7 +298,7 @@ export default function AdminLayout() {
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
               transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-              className="min-h-full pb-10"
+              className="h-full pb-10"
             >
               <Outlet />
             </motion.div>

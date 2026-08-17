@@ -23,8 +23,24 @@ from sqlalchemy.orm import Session
 from app.db.models import SimulationRequest, Provider, Trip
 from app.services.mock_adapters import generate_simulation_requests
 from app.services.notification_service import log_system_notification
+from app.core.json_utils import json_loads
 
 logger = logging.getLogger(__name__)
+
+
+def completed_at_map(db: Session) -> Dict[int, Any]:
+    """Map request_id -> real Trip.completed_at for every completed trip.
+
+    Trips carry the request IDs they served in `request_ids_json`; using the
+    trip's real completion timestamp keeps analytics anchored on the actual
+    lifecycle instead of mixing simulated arrival times with insert times.
+    """
+    result: Dict[int, Any] = {}
+    for trip in db.query(Trip).filter(Trip.completed_at.isnot(None)).all():
+        for rid in json_loads(trip.request_ids_json, []):
+            if rid not in result:
+                result[rid] = trip.completed_at
+    return result
 
 # ─────────────────────────────────────────────────────────────────
 # Request Generator — wraps mock_adapters for a single-request tick
@@ -70,7 +86,7 @@ class QueueManager:
         """Return requests that have been completed/processed."""
         return (
             db.query(SimulationRequest)
-            .filter(SimulationRequest.status != "Pending")
+            .filter(SimulationRequest.status == "Completed")
             .order_by(SimulationRequest.created_at.desc())
             .limit(limit)
             .all()
@@ -80,7 +96,7 @@ class QueueManager:
         return db.query(SimulationRequest).filter(SimulationRequest.status == "Pending").count()
 
     def count_completed(self, db: Session) -> int:
-        return db.query(SimulationRequest).filter(SimulationRequest.status != "Pending").count()
+        return db.query(SimulationRequest).filter(SimulationRequest.status == "Completed").count()
 
     def clear_pending(self, db: Session) -> int:
         """Delete only pending requests from DB."""
@@ -112,7 +128,9 @@ class QueueManager:
             "completed_ride": 0, "completed_food": 0, "completed_parcel": 0
         }
         for status, req_type, count in rows:
-            st = "pending" if status == "Pending" else "completed"
+            # Only genuinely finished requests count as completed; dispatched
+            # but in-flight (Assigned) requests stay in the pending bucket.
+            st = "completed" if status == "Completed" else "pending"
             key = f"{st}_{req_type.lower()}"
             if key in metrics:
                 metrics[key] = count
@@ -229,10 +247,16 @@ class QueueManager:
         now_utc = datetime.now(timezone.utc)
         processing_times = []
         queue_wait_times = []
+        completed_map = completed_at_map(db)
 
         for r in requests:
             if r.status == "Completed":
-                if r.request_timestamp and r.created_at:
+                c_at = r.created_at
+                d_at = completed_map.get(r.id)
+                if c_at and d_at:
+                    dur = max(1.0, abs((d_at - c_at).total_seconds()))
+                    processing_times.append(dur)
+                elif r.request_timestamp and r.created_at:
                     dur = max(1.0, abs((r.created_at - r.request_timestamp).total_seconds()))
                     processing_times.append(dur)
                 else:

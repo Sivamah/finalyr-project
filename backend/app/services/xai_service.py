@@ -65,17 +65,21 @@ def _best_partner(
     return best
 
 
-def _trip_metrics(db: Session, request_id: int) -> Optional[Dict[str, Any]]:
+def _trip_metrics(db: Session, request_id: int, trip_by_request: Optional[Dict[int, Any]] = None) -> Optional[Dict[str, Any]]:
     """Real impact metrics from the Trip the request was dispatched in."""
-    trip = (
-        db.query(Trip)
-        .filter(Trip.request_ids_json.like(f'%"{request_id}"%')
-                | Trip.request_ids_json.like(f"%{request_id}%"))
-        .order_by(Trip.created_at.desc())
-        .first()
-    )
-    if trip is None:
-        return None
+    if trip_by_request is not None:
+        trip = trip_by_request.get(request_id)
+        if trip is None:
+            return None
+    else:
+        trip = (
+            db.query(Trip)
+            .filter(Trip.request_ids_json.like(f'%"{request_id}"%'))
+            .order_by(Trip.created_at.desc())
+            .first()
+        )
+        if trip is None:
+            return None
     ids = json_loads(trip.request_ids_json, [])
     # Driver profit: revenue from the trip minus operating cost.
     # Revenue ≈ distance × (ride/food/parcel blended per-km rate ~ ₹12/km);
@@ -99,6 +103,7 @@ def _generate_explanation_for_request(
     provider_name: str,
     threshold: float,
     compute_kwargs: Optional[Dict[str, Any]] = None,
+    trip_by_request: Optional[Dict[int, Any]] = None,
 ) -> XAIExplanationItem:
     req_id = req.id
     dist = req.estimated_distance_km or 0.0
@@ -124,7 +129,7 @@ def _generate_explanation_for_request(
     )
     result = _best_partner(calculator, db, req, partners, compute_kwargs)
 
-    trip_metrics = _trip_metrics(db, req_id)
+    trip_metrics = _trip_metrics(db, req_id, trip_by_request)
 
     if result is not None:
         fs = result.factor_scores
@@ -312,17 +317,39 @@ class XAIService:
         status: Optional[str] = None,
         search: Optional[str] = None,
         limit: int = 100,
+        request_id: Optional[int] = None,
     ) -> List[XAIExplanationItem]:
         query = db.query(SimulationRequest)
 
+        if request_id is not None:
+            query = query.filter(SimulationRequest.id == request_id)
         if request_type and request_type.lower() != "all":
             query = query.filter(func.lower(SimulationRequest.request_type) == request_type.lower())
         if provider_id and provider_id != 0:
             query = query.filter(SimulationRequest.provider_id == provider_id)
         if status and status.lower() != "all":
-            query = query.filter(func.lower(SimulationRequest.status) == status.lower())
+            # The explanation list filters on the request lifecycle status:
+            # "Evaluated" = processed (no longer waiting in the queue),
+            # "Pending" = still waiting.  Filtering the raw column with the
+            # label would match nothing for "Evaluated".
+            if status.lower() == "evaluated":
+                query = query.filter(func.lower(SimulationRequest.status) != "pending")
+            elif status.lower() == "pending":
+                query = query.filter(func.lower(SimulationRequest.status) == "pending")
+            else:
+                query = query.filter(func.lower(SimulationRequest.status) == status.lower())
 
-        requests = query.order_by(SimulationRequest.created_at.desc()).limit(limit).all()
+        # Search/decision are post-filtered in Python, so the SQL limit must
+        # NOT be applied first or rows beyond the newest `limit` can never
+        # match those filters.  Apply the limit only to the final result.
+        has_post_filters = (
+            (decision and decision.lower() != "all")
+            or bool(search)
+        )
+        query = query.order_by(SimulationRequest.created_at.desc())
+        if not has_post_filters:
+            query = query.limit(limit)
+        requests = query.all()
 
         # Provider map
         provider_ids = {r.provider_id for r in requests if r.provider_id}
@@ -330,6 +357,14 @@ class XAIService:
 
         threshold = _get_threshold(db)
         compute_kwargs = self._build_compute_kwargs(db, requests)
+
+        # Build the request -> trip map once so the per-request trip metrics
+        # lookup is O(1) instead of a LIKE query per explanation.
+        trip_by_request: Dict[int, Any] = {}
+        for trip in db.query(Trip).all():
+            for rid in json_loads(trip.request_ids_json, []):
+                if rid not in trip_by_request:
+                    trip_by_request[rid] = trip
 
         explanations = []
         search_lower = search.lower() if search else None
@@ -342,7 +377,8 @@ class XAIService:
                 exp = cached
             else:
                 exp = _generate_explanation_for_request(
-                    db, self._calculator, req, pname, threshold, compute_kwargs
+                    db, self._calculator, req, pname, threshold,
+                    compute_kwargs, trip_by_request,
                 )
                 self._cache_put(req.id, exp)
 
@@ -363,6 +399,8 @@ class XAIService:
 
             explanations.append(exp)
 
+        if has_post_filters:
+            return explanations[:limit]
         return explanations
 
     def get_overview(self, db: Session) -> Dict[str, Any]:

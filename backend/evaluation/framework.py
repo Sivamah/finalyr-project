@@ -520,7 +520,19 @@ class WorkloadRunner:
 
         if status_map is None:
             status_map = {r.id: r.status for r in self.requests}
-        completed = sum(1 for s in status_map.values() if s == "Assigned")
+        # R4: this counted only "Assigned" while the three wave counters
+        # (_wave_metrics and the learning/feedforward runs) count
+        # ("Assigned", "Completed").  The same key name, `requests_completed`,
+        # was therefore published with two different definitions in one table.
+        # Unified on the wave definition.
+        #
+        # NOTE ON NAMING: "Assigned" means DISPATCHED, not finished.  This is a
+        # dispatch-success count, and the report labels it as such — see
+        # make_admfe_report.METRIC_LABELS.  Do not present it as a completion
+        # rate.
+        completed = sum(
+            1 for s in status_map.values() if s in ("Assigned", "Completed")
+        )
         batching_rate = round(
             (len(shared) / len(trips) * 100.0), 1
         ) if trips else 0.0
@@ -547,7 +559,18 @@ class WorkloadRunner:
                 (co2_saved / (co2_saved + total_fuel * CO2_FACTOR) * 100.0), 1
             ) if co2_saved > 0 else 0.0,
             "avg_utilization_pct": avg([t.utilization_pct or 0 for t in trips]),
-            "avg_waiting_min": avg([t.max_delay_min or 0 for t in trips]),
+            # R3: `avg_waiting_min` is an ALIAS of `avg_delay_min` — both are
+            # mean(trip.max_delay_min).  It is kept so existing result JSONs
+            # and their consumers still parse, but it is NOT an independent
+            # measurement and must not be reported as a second result; it has
+            # been removed from METRIC_LABELS in make_admfe_report.py.
+            #
+            # A genuine passenger waiting time (dispatch → pickup arrival) is
+            # NOT derivable from the Trip row: Trip.eta_min stores the route
+            # duration, not the driver's ETA to the first pickup, and the
+            # driver ETA is only ever written into the batch reason text.
+            # Recording it would need a new Trip column — a schema change.
+            "avg_waiting_min": avg_delay_min,   # alias — see note above
             "avg_delay_min": avg_delay_min,
             "avg_shared_waiting_min": avg([t.max_delay_min or 0 for t in shared]),
             "avg_optimization_score": avg([t.optimization_score or 0 for t in trips]),

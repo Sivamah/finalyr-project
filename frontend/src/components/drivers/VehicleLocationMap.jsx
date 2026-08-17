@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { MapContainer, TileLayer, Marker as LeafletMarker, Popup as LeafletPopup } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Navigation, Truck, RefreshCw, Shield, User } from 'lucide-react';
+import { Navigation, Truck, RefreshCw } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 import { COIMBATORE_CENTER as _CBE } from '../../utils/coimbatore';
@@ -30,8 +30,6 @@ function createVehicleIcon(status) {
 }
 
 export default function VehicleLocationMap({ locations = [], onRefresh }) {
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
-
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-sm space-y-4">
       {/* Map Header */}

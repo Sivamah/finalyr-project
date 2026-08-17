@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.json_utils import json_loads
 from app.db.models import SimulationScenario, SavedSimulation, SimulationRequest, Provider
 from app.services.notification_service import log_system_notification
+from app.services.simulation_service import completed_at_map
 
 logger = logging.getLogger(__name__)
 
@@ -134,6 +135,7 @@ class PlaybackService:
         """Snapshot current database simulation requests and generate replay frames timeline."""
         requests = db.query(SimulationRequest).all()
         providers = db.query(Provider).all()
+        sorted_by_created = sorted(requests, key=lambda r: r.created_at or datetime.min)
 
         total_reqs = len(requests)
         completed_reqs = sum(1 for r in requests if r.status == "Completed")
@@ -187,23 +189,27 @@ class PlaybackService:
 
         # ── Real average waiting time (created → completed) ───────────────────
         wait_times = []
+        completed_map = completed_at_map(db)
         for r in requests:
             c_at = r.created_at
-            r_ts = r.request_timestamp
-            if r.status == "Completed" and c_at and r_ts:
-                try:
-                    wait = max(0.0, abs((c_at - r_ts).total_seconds()))
-                    wait_times.append(wait)
-                except Exception:
-                    continue
+            if r.status == "Completed" and c_at:
+                d_at = completed_map.get(r.id)
+                if d_at:
+                    wait_times.append(max(0.0, abs((d_at - c_at).total_seconds())))
+                else:
+                    r_ts = r.request_timestamp
+                    if r_ts:
+                        wait_times.append(max(0.0, abs((c_at - r_ts).total_seconds())))
         avg_wait = round(sum(wait_times) / len(wait_times), 1) if wait_times else 0.0
 
         saved = SavedSimulation(
             name=name,
             scenario_name=scenario_name,
             duration_seconds=float(
-                (requests[-1].created_at - requests[0].created_at).total_seconds()
-                if total_reqs > 1 and requests[0].created_at and requests[-1].created_at
+                (sorted_by_created[-1].created_at - sorted_by_created[0].created_at).total_seconds()
+                if total_reqs > 1
+                and sorted_by_created[0].created_at
+                and sorted_by_created[-1].created_at
                 else total_reqs * 12.5
             ),
             total_requests=total_reqs,
@@ -242,6 +248,12 @@ class PlaybackService:
 
         if scenario and scenario.lower() != "all":
             query = query.filter(func.lower(SavedSimulation.scenario_name) == scenario.lower())
+
+        if provider and provider.lower() != "all":
+            query = query.filter(SavedSimulation.provider_stats_json.like(f'%"{provider}"%'))
+
+        if date and date.lower() != "all":
+            query = query.filter(SavedSimulation.created_at.like(f"{date}%"))
 
         if search:
             s_lower = search.lower()

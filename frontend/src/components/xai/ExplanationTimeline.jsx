@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, CheckCircle2, Circle, ArrowDown } from 'lucide-react';
+import { Clock, CheckCircle2, Circle } from 'lucide-react';
 
 export default function ExplanationTimeline({ timeline = [] }) {
   const hasEvents = Array.isArray(timeline) && timeline.length > 0;

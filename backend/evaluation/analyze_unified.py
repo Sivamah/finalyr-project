@@ -15,8 +15,14 @@ def generate_table(a, b, label_a, label_b):
         ("Batching rate (%)", lambda m: (m["single_pass"]["shared_trips"] / max(1, m["single_pass"]["requests_processed"])) * 100),
         ("Shared trips", lambda m: m["single_pass"]["shared_trips"]),
         ("Individual trips", lambda m: m["single_pass"]["individual_trips"]),
-        ("Avg delay (min)", lambda m: m["waves"]["mean_delay_error_min"] if "mean_delay_error_min" in m["waves"] else 0.0),
-        ("Avg waiting time (min)", lambda m: m["single_pass"]["trips"]["avg_waiting_min"]),
+        # R3: this row reads waves.mean_delay_error_min, which is the delay
+        # PREDICTION ERROR (actual − estimated), not the delay itself.
+        # Labelled accordingly so it is not read as the trip delay.
+        ("Delay prediction error (min)", lambda m: m["waves"]["mean_delay_error_min"] if "mean_delay_error_min" in m["waves"] else 0.0),
+        # avg_waiting_min is an alias of avg_delay_min — this is the actual
+        # mean trip delay, so it is labelled as such rather than as a second
+        # "waiting" measurement.
+        ("Avg delay (min)", lambda m: m["single_pass"]["trips"]["avg_waiting_min"]),
         ("Avg distance (km)", lambda m: m["single_pass"]["trips"]["avg_distance_km"]),
         ("Fuel consumption (L)", lambda m: m["waves"]["total_fuel_l"]),
         ("Fuel saved (L)", lambda m: m["single_pass"]["trips"]["fuel_saved_l"]),

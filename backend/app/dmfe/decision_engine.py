@@ -605,6 +605,7 @@ class DecisionEngine:
         rejected_batches: List[Dict[str, Any]] = []
         score_accumulator: List[float] = []
         availability_cache: Dict[int, Tuple[bool, str]] = {}
+        run_batch_ids: List[int] = []
 
         for idx, cg in enumerate(candidate_groups, start=1):
             score = cg.result.compatibility_score
@@ -635,6 +636,7 @@ class DecisionEngine:
             )
             db.add(batch)
             db.flush()  # get batch.id before commit
+            run_batch_ids.append(batch.id)
 
             batch_dict = candidate_batch_dict(
                 cg, batch_code,
@@ -653,14 +655,17 @@ class DecisionEngine:
         # not be batched (each request is processed exactly once per run).
         unmatched_ids = [r.id for r in pending if r.id not in matched_ids]
         for rid in unmatched_ids:
-            db.add(_make_batch_row(
+            batch = _make_batch_row(
                 batch_code=f"TRIP-{rid:04d}",
                 request_ids=[rid],
                 compatibility_score=0.0,
                 decision="Individual",
                 reasons=["Solo trip — no compatible batch found"],
                 status="Individual",
-            ))
+            )
+            db.add(batch)
+            db.flush()
+            run_batch_ids.append(batch.id)
         db.flush()
 
         avg_score = round(
@@ -680,10 +685,13 @@ class DecisionEngine:
         db.commit()
         db.refresh(run)
 
-        # Back-fill analysis_run_id on all batches created in this run
-        db.query(DMFEBatch).filter(DMFEBatch.analysis_run_id.is_(None)).update(
-            {"analysis_run_id": run.id}
-        )
+        # Back-fill analysis_run_id on only the batches created in this run
+        # (a blanket NULL update would misattribute batches persisted by the
+        # dispatch pipeline, which never sets analysis_run_id).
+        if run_batch_ids:
+            db.query(DMFEBatch).filter(DMFEBatch.id.in_(run_batch_ids)).update(
+                {"analysis_run_id": run.id}
+            )
         db.commit()
 
         logger.info(

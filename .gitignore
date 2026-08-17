@@ -12,3 +12,6 @@ dist/
 build/
 .DS_Store
 .vite/
+.fuse_hidden*
+commit_message.txt
+

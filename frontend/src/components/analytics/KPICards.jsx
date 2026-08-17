@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  FileText, Activity, Clock, CheckCircle2, Gauge, Timer, Building2, UserCheck
+  FileText, Clock, CheckCircle2, Gauge, Timer, Building2, UserCheck
 } from 'lucide-react';
 
 function SingleKPICard({ label, value, unit = '', icon: Icon, iconBg, borderColor }) {

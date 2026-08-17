@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserCheck, UserX, UserMinus, Plus, Edit2, Trash2, Phone, Mail, MapPin, Shield } from 'lucide-react';
+import { Plus, Edit2, Trash2, Phone, MapPin, Shield } from 'lucide-react';
 
 const STATUS_STYLE = {
   Available: 'bg-green-500/10 text-green-400 border-green-500/30',

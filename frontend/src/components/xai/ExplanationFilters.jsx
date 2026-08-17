@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Filter, Layers, Building2, BrainCircuit, Activity, RotateCcw } from 'lucide-react';
+import { Search, Layers, Building2, BrainCircuit, Activity, RotateCcw } from 'lucide-react';
 
 export default function ExplanationFilters({
   search,
@@ -69,7 +69,6 @@ export default function ExplanationFilters({
               <option value="All" className="bg-gray-800 text-white">All Decisions</option>
               <option value="Compatible" className="bg-gray-800 text-white">Compatible for Batching</option>
               <option value="Standalone" className="bg-gray-800 text-white">Standalone Direct Routing</option>
-              <option value="Deferred" className="bg-gray-800 text-white">Deferred for Next Batch</option>
             </select>
           </div>
 

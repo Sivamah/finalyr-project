@@ -87,7 +87,7 @@ export default function SystemConfiguration() {
       const res = await api.patch('/config', { settings: flatSettings });
       toast.success(res.data.message || 'Configuration saved successfully');
       fetchData();
-    } catch (err) {
+    } catch {
       toast.error('Failed to save configuration parameters');
     } finally {
       setSaving(false);

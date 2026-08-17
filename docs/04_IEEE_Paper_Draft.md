@@ -43,13 +43,13 @@ Table 1 (headline delivery metrics, static vs adaptive):
 | Fuel saved Δ | +16.8% | +5.3% | +13.2% | +9.8% |
 | CO2 saved Δ | +16.6% | +5.2% | +13.2% | +9.9% |
 | Unassigned Δ | 0 | 0 | −2.7% | −1.0% |
-| Avg waiting Δ | +2.7% | −0.6% | −5.3% | +3.2% |
+| Avg delay Δ | +2.7% | −0.6% | −5.3% | +3.2% |
 
-Table 2 (efficiency & timeline): batching rate is 42.9–83.3% (adaptive +2.8–3.5% at low volume, parity at high volume); avg delay is 4.3–5.4 minutes in both variants; adaptive raises processing cost from +9.5% ms/req (W=50) to +84.9% (W=500), with pipeline wall time rising from 0.92s to 7.36s.
+Table 2 (efficiency & timeline): batching rate is 42.9–83.3% (adaptive +2.8–3.5% at low volume, parity at high volume); avg delay is 4.3–5.4 minutes in both variants (the same measure whose deltas appear in Table 1); adaptive raises processing cost from +9.5% ms/req (W=50) to +84.9% (W=500), with pipeline wall time rising from 0.92s to 7.36s.
 
 Table 3 (stage share): batch formation dominates the adaptive pipeline at high volume — 57.9% of wall time at W=500 vs 31.5% static; route optimisation is 1.4–7.7% and never the bottleneck.
 
-Table 4 (closed-loop learning): completion stays at 100% in both arms at every workload. Learning refits parameters on days 1–4 (corridor multipliers 1.05–1.25) and reduces on-arm delay error at W=50 (1.41→0.34 min) and W=100 (0.96→0.81 min); at W=250/500 on-arm delay error is flat (≈1.0–1.1 min, no better than the OFF arm).
+Table 4 (closed-loop learning): the dispatch rate stays at 100% in both arms at every workload — that is, every generated request was successfully assigned a driver and vehicle. It is a dispatch-success rate, not a measure of trips that ran to completion. Learning refits parameters on days 1–4 (corridor multipliers 1.05–1.25) and reduces on-arm delay error at W=50 (1.41→0.34 min) and W=100 (0.96→0.81 min); at W=250/500 on-arm delay error is flat (≈1.0–1.1 min, no better than the OFF arm).
 
 ## VI. DISCUSSION
 The integration of Explainable AI (XAI) was critical in validating the DMFE's outputs. By translating mathematical distance matrices into natural language, human operators could easily audit the batching logic: in audited runs, the stored adaptive rationale (compatibility score, decision confidence, signed factor contributions, batch-quality score vs its threshold) matches an independent recomputation from recorded state (e.g. CS 90.90 recomputed to 90.70, decision confidence 68.0% as stored). Attribution is therefore reproducible, not decorative.
@@ -61,7 +61,9 @@ Three honest findings temper the headline gains. First, adaptivity buys utilizat
 - Learning is inert below the 60-driver tracking threshold (W=50) and flat at W=500; "adaptive wins" claims therefore hold for 100–250-request workloads.
 - The live-tracking map renders seeded simulator positions polled over REST; it is not GPS and not a push channel (no WebSocket).
 - Avg completion time was reported from real trip records (completed-at minus created-at); a previously duplicated metric was removed because it double-counted processing time.
+- Passenger waiting time is not measured independently. The harness records only the trip delay produced by the route model (`Trip.max_delay_min`); the driver's ETA to the first pickup is not persisted on the trip record, so dispatch-to-pickup waiting cannot be reconstructed. An earlier "average waiting time" row was withdrawn because it was computed from the same field as average delay and therefore reported one measurement twice.
+- Reported rates are dispatch rates: a request counts as served once it reaches `Assigned`. Trip execution is simulated, so completion is not an independently observed outcome.
 - Batch formation is O(pairs) with no caching; large fleets or real-time feeds require caching/parallelisation (see `12_Performance_Optimization_Report.md`).
 
 ## VIII. CONCLUSION & FUTURE SCOPE
-The Unified Mobility and Delivery System successfully demonstrates that cross-domain batching is computationally feasible — with utilization and sustainability gains between 3% and 17% across workloads, an auditable XAI rationale, and 100% request completion in closed-loop learning. Future work will focus on caching and parallelising batch formation, integrating Machine Learning for predictive driver pre-positioning, and implementing dynamic pricing models to incentivize passenger-parcel batching.
+The Unified Mobility and Delivery System successfully demonstrates that cross-domain batching is computationally feasible — with utilization and sustainability gains between 3% and 17% across workloads, an auditable XAI rationale, and a 100% dispatch rate in closed-loop learning. Future work will focus on caching and parallelising batch formation, integrating Machine Learning for predictive driver pre-positioning, and implementing dynamic pricing models to incentivize passenger-parcel batching.

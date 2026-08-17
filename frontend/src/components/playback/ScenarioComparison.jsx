@@ -1,10 +1,10 @@
 import React from 'react';
-import { Scale, Trophy, CheckCircle2, Clock, Layers, ArrowRight } from 'lucide-react';
+import { Scale, Trophy } from 'lucide-react';
 
 export default function ScenarioComparison({ comparison = null, onClose }) {
   if (!comparison) return null;
 
-  const { simulation_1: sim1, simulation_2: sim2, delta_completion_rate: deltaRate, delta_waiting_time_sec: deltaWait, winner_simulation_id: winnerId } = comparison;
+  const { simulation_1: sim1, simulation_2: sim2, delta_completion_rate: deltaRate, winner_simulation_id: winnerId } = comparison;
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-sm space-y-6">
