@@ -1,7 +1,24 @@
 import axios from 'axios';
 
+const getBaseUrl = () => {
+  let url = import.meta.env.VITE_API_URL;
+  if (!url || !url.trim()) {
+    // In production on Vercel, fallback to deployed Render backend URL, never localhost
+    if (import.meta.env.PROD) {
+      url = 'https://rapid-backend-x0ry.onrender.com/api';
+    } else {
+      url = 'http://localhost:8000/api';
+    }
+  }
+  url = url.trim().replace(/\/+$/, '');
+  if (!url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
+};
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api',
+  baseURL: getBaseUrl(),
 });
 
 // Attach JWT token to every request

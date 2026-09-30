@@ -80,16 +80,32 @@ app = FastAPI(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 
-origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
+origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+default_origins = [
+    "https://finalyr-project-ten.vercel.app",
+    "https://finalyr-project.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://localhost:8000",
+]
+for origin in default_origins:
+    if origin not in origins:
+        origins.append(origin)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex=r"^https:\/\/.*\.vercel\.app$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(auth.router,          prefix="/api/auth",          tags=["Authentication"])
+app.include_router(auth.router,          prefix="/api",               tags=["Authentication"], include_in_schema=False)
+app.include_router(auth.router,          prefix="/auth",              tags=["Authentication"], include_in_schema=False)
+app.include_router(auth.router,                                       tags=["Authentication"], include_in_schema=False)
 app.include_router(providers.router,     prefix="/api/providers",     tags=["Providers"])
 app.include_router(dashboard.router,     prefix="/api/dashboard",     tags=["Dashboard"])
 app.include_router(orchestration.router, prefix="/api/orchestration", tags=["Orchestration"])

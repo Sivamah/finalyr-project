@@ -10,6 +10,7 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
+@router.post("/login/", response_model=Token, include_in_schema=False)
 def login(user_in: UserLogin, db: SessionDep):
     user = db.query(User).filter(User.email == user_in.email).first()
     if not user or not security.verify_password(user_in.password, user.password_hash):
@@ -25,10 +26,12 @@ def login(user_in: UserLogin, db: SessionDep):
 
 
 @router.get("/profile", response_model=UserResponse)
+@router.get("/profile/", response_model=UserResponse, include_in_schema=False)
 def read_user_me(current_user: CurrentUser):
     return current_user
 
 
 @router.post("/logout")
+@router.post("/logout/", include_in_schema=False)
 def logout():
     return {"message": "Successfully logged out"}

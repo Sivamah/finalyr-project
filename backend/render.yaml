@@ -14,7 +14,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_ORIGINS
-        value: "https://finalyr-project-ten.vercel.app,http://localhost:5173"
+        value: "https://finalyr-project-ten.vercel.app,https://finalyr-project.vercel.app,http://localhost:5173"
 
 databases:
   - name: rapid-db
