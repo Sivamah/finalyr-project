@@ -1,20 +1,59 @@
 import axios from 'axios';
 
-const getBaseUrl = () => {
-  let url = import.meta.env.VITE_API_URL;
-  if (!url || !url.trim()) {
-    // In production on Vercel, fallback to deployed Render backend URL, never localhost
-    if (import.meta.env.PROD) {
-      url = 'https://rapid-backend-x0ry.onrender.com/api';
+export const cleanApiUrl = (rawUrl, isProd = false) => {
+  let url = (typeof rawUrl === 'string' ? rawUrl : '').trim();
+
+  // 1. Strip outer double/single quotes
+  url = url.replace(/^["']+|["']+$/g, '').trim();
+
+  // 2. Strip accidental variable assignment prefix (e.g. "VITE_API_URL=", "API_URL=")
+  url = url.replace(/^(?:VITE_)?(?:REACT_APP_)?API_URL\s*=\s*/i, '').trim();
+
+  // 3. Strip inner quotes if value was entered as VITE_API_URL="https://..."
+  url = url.replace(/^["']+|["']+$/g, '').trim();
+
+  // 4. Default if empty
+  if (!url) {
+    return isProd
+      ? 'https://rapid-backend-grmw.onrender.com/api'
+      : 'http://localhost:8000/api';
+  }
+
+  // 5. Fix accidental single slash after protocol (e.g. "https:/domain.com" -> "https://domain.com")
+  url = url.replace(/^(https?):\/+([^\/])/i, '$1://$2');
+
+  // 6. Prepend https:// or http:// if missing protocol entirely
+  if (!/^https?:\/\//i.test(url)) {
+    if (url.startsWith('localhost') || url.startsWith('127.0.0.1')) {
+      url = `http://${url}`;
     } else {
-      url = 'http://localhost:8000/api';
+      url = `https://${url}`;
     }
   }
-  url = url.trim().replace(/\/+$/, '');
-  if (!url.endsWith('/api')) {
-    url = `${url}/api`;
+
+  // 7. Parse and normalize via standard URL object
+  try {
+    const parsed = new URL(url);
+    // In production, never point to localhost
+    if (isProd && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')) {
+      return 'https://rapid-backend-grmw.onrender.com/api';
+    }
+    let pathname = parsed.pathname.replace(/\/+$/, '');
+    if (!pathname.endsWith('/api')) {
+      pathname = pathname ? `${pathname}/api` : '/api';
+    }
+    return `${parsed.origin}${pathname}`;
+  } catch {
+    url = url.replace(/\/+$/, '');
+    if (!url.endsWith('/api')) {
+      url = `${url}/api`;
+    }
+    return url;
   }
-  return url;
+};
+
+const getBaseUrl = () => {
+  return cleanApiUrl(import.meta.env.VITE_API_URL, import.meta.env.PROD);
 };
 
 const api = axios.create({
