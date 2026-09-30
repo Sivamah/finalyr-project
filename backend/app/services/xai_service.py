@@ -4,14 +4,21 @@ XAI Service — Explainable AI for the DMFE
 Phase 7 rewrite: every explanation is computed from the REAL DMFE engine,
 never from seeded formulas.
 
+Historical fidelity: for a request with a recorded decision (a `dmfe_batches`
+row in status Dispatched / Individual / Rejected) the explanation REPLAYS the
+stored decision — stored compatibility score, factor scores/details, reasons
+and dispatched Trip metrics — instead of recomputing a fresh decision that
+could contradict what was actually dispatched.
+
 For each request we:
-  1. Evaluate its compatibility against the best-matching pending/processed
-     partner using the real CompatibilityCalculator (5-factor weighted CS).
-  2. Compare CS against the configured threshold → real decision.
-  3. When the request was assigned to a Trip, attach the REAL impact
-     metrics recorded at dispatch time: fuel saved, CO₂ saved, distance
-     saved, and driver profit (fare − operating cost).
-  4. Build the timeline from actual lifecycle timestamps.
+  1. If a stored decision exists → replay it (score, factors, reasons).
+  2. Otherwise evaluate against the best-matching pending/processed partner
+     using the real CompatibilityCalculator (5-factor weighted CS).
+  3. Compare CS against the configured threshold → real decision.
+  4. Attach the REAL impact metrics recorded at dispatch time: fuel saved,
+     CO₂ saved, distance saved, and driver profit (fare − operating cost).
+  5. Build the timeline from actual lifecycle timestamps where recorded;
+     synthetic offsets are used only on the live-fresh path.
 """
 
 from typing import List, Dict, Any, Optional
@@ -23,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.core.json_utils import json_loads
 from app.db.models import SimulationRequest, Provider, Trip
 from app.dmfe.compatibility import CompatibilityCalculator, _get_threshold
+from app.dmfe.models import DMFEBatch
 from app.schemas.xai import (
     XAIFactors, XAITimelineItem, XAIExplanationItem,
     XAIRequestPoint, XAIDriverLink, XAIVehicleLink,
@@ -35,6 +43,21 @@ from app.schemas.xai import (
 # 60s response into an instant one.  TTL keeps new requests visible quickly.
 _EXPLANATION_CACHE_TTL = 30.0
 _MAX_PARTNERS = 20
+
+# Bound on the recorded-decision index scan.  Historical replay must be able
+# to find the stored DMFEBatch for any dispatched request; with 11,872 batches
+# on the current dev database a cap of 2000 would silently miss older recorded
+# decisions and fall back to a live recompute.  This is an O(n) scan of one
+# table (JSON membership), NOT the O(rows x partners) evaluation loop.
+_STORED_DECISION_SCAN_LIMIT = 25000
+
+# When search/decision post-filters are set, the SQL limit is applied to a
+# small multiple of the requested limit instead of loading the entire request
+# table (12,688 rows on the dev DB).  Post-filtering happens in Python, so a
+# scan budget of `limit * multiplier` rows still fills the requested limit for
+# normal result densities while keeping the initial dashboard retrieval
+# bounded.  Explicit larger `limit` values scale the budget proportionally.
+_POST_FILTER_SCAN_MULTIPLIER = 4
 
 
 def _best_partner(
@@ -218,6 +241,40 @@ def _build_trip_link(trip: Any, request_by_id: Dict[int, Any]) -> Optional["XAIT
     )
 
 
+# Deployed ("realized") decision statuses.  A `Pending` batch is only a live
+# candidate from /analyze; it must never be replayed as the request's
+# decision — those requests are still waiting in the queue.
+_STORED_BATCH_STATUSES = ("Dispatched", "Individual", "Rejected")
+
+
+def _find_stored_decision(
+    db: Session,
+    request_id: int,
+    batch_by_request: Optional[Dict[int, Any]] = None,
+) -> Optional[Any]:
+    """
+    The DMFEBatch row recording this request's realized decision, or None.
+
+    Every request dispatched by the pipeline has one (shared → "Dispatched",
+    individual → "Individual", failed dispatch → "Rejected").  Historical XAI
+    replays that stored record instead of recomputing a fresh decision that
+    can contradict what was actually dispatched.
+    """
+    if batch_by_request is not None:
+        return batch_by_request.get(request_id)
+    candidates = (
+        db.query(DMFEBatch)
+        .filter(DMFEBatch.status.in_(_STORED_BATCH_STATUSES))
+        .order_by(DMFEBatch.id.desc())
+        .limit(_STORED_DECISION_SCAN_LIMIT)
+        .all()
+    )
+    for b in candidates:
+        if request_id in json_loads(b.request_ids_json, []):
+            return b
+    return None
+
+
 def _generate_explanation_for_request(
     db: Session,
     calculator: CompatibilityCalculator,
@@ -226,167 +283,278 @@ def _generate_explanation_for_request(
     threshold: float,
     compute_kwargs: Optional[Dict[str, Any]] = None,
     trip_by_request: Optional[Dict[int, Any]] = None,
+    batch_by_request: Optional[Dict[int, Any]] = None,
 ) -> XAIExplanationItem:
     req_id = req.id
     dist = req.estimated_distance_km or 0.0
 
-    # A-DMFE: use the context-adjusted effective threshold for consistency.
-    # The context is built once per batch (passed in compute_kwargs) so we do
-    # not re-scan the whole fleet for every single request.
-    if (compute_kwargs or {}).get("mode") == "adaptive":
-        from app.dmfe.adaptive.decision import effective_threshold
-
-        context = (compute_kwargs or {}).get("context")
-        try:
-            threshold = effective_threshold(threshold, context)
-        except Exception:
-            pass
-
-    partners = (
-        db.query(SimulationRequest)
-        .filter(SimulationRequest.id != req_id)
-        .order_by(SimulationRequest.created_at.desc())
-        .limit(_MAX_PARTNERS)
-        .all()
-    )
-    result = _best_partner(calculator, db, req, partners, compute_kwargs)
-
     trip = _find_trip(db, req_id, trip_by_request)
     trip_metrics = _trip_metrics(db, req_id, trip_by_request, trip=trip)
+    stored = _find_stored_decision(db, req_id, batch_by_request)
 
-    if result is not None:
-        fs = result.factor_scores
-        details = result.factor_details
-        overall = result.compatibility_score
-        decision = "Compatible for Batching" if overall >= threshold else "Standalone Direct Routing"
+    def _ts(dt):
+        if dt is None:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.strftime("%H:%M:%S")
+
+    if stored is not None:
+        # ── Historical fidelity: replay the RECORDED decision ─────────────
+        fs = json_loads(stored.factor_scores_json, {}) or {}
+        details = json_loads(stored.factor_details_json, {}) or {}
+        reasons = json_loads(stored.reason_json, []) or []
+        overall = stored.compatibility_score or 0.0
+        delay_min = stored.estimated_delay_min or 0.0
+        batch_ids = json_loads(stored.request_ids_json, [])
+        partner_ids = [i for i in batch_ids if i != req_id]
+        is_shared = (stored.decision or "").strip() == "Compatible"
+
+        if is_shared:
+            decision = "Compatible for Batching"
+            status = "Compatible"
+            # Fidelity: never recompute against the CURRENT threshold —
+            # the recorded decision was made at dispatch time.  Replay the
+            # recorded score only; the stored reason lines already carry the
+            # threshold that actually applied.
+            decision_summary = (
+                f"Compatibility score {overall:.1f}% — request can share a "
+                f"vehicle with #{partner_ids[0] if partner_ids else '?'}"
+            )
+            ok_bullets = [r[2:] for r in reasons if r.startswith("✓")]
+            reason = ("Compatible: " + "; ".join(ok_bullets)[:300]
+                      if ok_bullets else decision_summary)
+            key_reasons = [
+                b[2:] for b in reasons if b.startswith(("✓", "✗", "ℹ️"))
+            ] or [decision_summary]
+        else:
+            decision = "Standalone Direct Routing"
+            status = "Incompatible"
+            decision_summary = (
+                f"Compatibility score {overall:.1f}% — "
+                "dispatched as an individual trip"
+            )
+            blockers = [r[2:] for r in reasons if r.startswith("✗")]
+            reason = ("Rejected from batching: " + "; ".join(blockers)[:300]
+                      if blockers else "Solo trip — no compatible batch found")
+            key_reasons = [
+                b[2:] for b in reasons if b.startswith(("✓", "✗", "ℹ️"))
+            ] or [decision_summary]
+
         pickup_dist_km = round((details.get("pickup_distance_m") or 0) / 1000.0, 2)
         time_diff_min = details.get("time_diff_min") or 0.0
         route_pct = round((fs.get("route", 0) or 0) * 100.0, 1)
-        delay_min = result.estimated_delay_min
-        partner_ids = [i for i in result.request_ids if i != req_id]
-
-        if overall >= threshold:
-            decision_summary = (
-                f"Compatibility score {overall:.1f}% ≥ threshold {threshold:.0f}% — "
-                f"request can share a vehicle with #{partner_ids[0] if partner_ids else '?'}"
-            )
-            status = "Compatible"
-        else:
-            decision_summary = (
-                f"Compatibility score {overall:.1f}% < threshold {threshold:.0f}% — "
-                f"dispatched as an individual trip"
-            )
-            status = "Incompatible"
-
-        reason_bullets = result.reasons or []
-        if overall >= threshold:
-            reason = "Compatible: " + "; ".join(
-                r[2:] for r in reason_bullets if r.startswith("✓")
-            )[:300]
-        else:
-            blockers = [r[2:] for r in reason_bullets if r.startswith("✗")]
-            reason = ("Rejected from batching: " + "; ".join(blockers)[:300]
-                      if blockers else decision_summary)
-
         factors = XAIFactors(
-            pickup_distance_score=round(fs.get("pickup", 0) * 100.0, 1),
+            pickup_distance_score=round((fs.get("pickup", 0) or 0) * 100.0, 1),
             destination_similarity=route_pct,
             estimated_delay_score=round(
                 max(0.0, 1.0 - delay_min / 20.0) * 100.0, 1
             ),
-            vehicle_capacity_score=round(fs.get("capacity", 0) * 100.0, 1),
-            priority_score=round(fs.get("priority", 0) * 100.0, 1),
+            vehicle_capacity_score=round((fs.get("capacity", 0) or 0) * 100.0, 1),
+            priority_score=round((fs.get("priority", 0) or 0) * 100.0, 1),
             overall_compatibility_score=overall,
             pickup_distance_km=pickup_dist_km,
             time_difference_min=time_diff_min,
             route_similarity_pct=route_pct,
             estimated_delay_min=delay_min,
         )
-    else:
-        factors = XAIFactors(
-            pickup_distance_score=50.0,
-            destination_similarity=50.0,
-            estimated_delay_score=50.0,
-            vehicle_capacity_score=90.0,
-            priority_score=60.0,
-            overall_compatibility_score=0.0,
-        )
-        overall = 0.0
-        decision = "Standalone Direct Routing"
-        decision_summary = "No comparable partner request found — dispatched individually."
-        status = "Incompatible"
-        reason = "No nearby request with overlapping route/time window to batch with."
-        partner_ids = []
 
-    # Decision confidence.
-    #
-    # The A-DMFE (adaptive) path computes a real confidence in
-    # CompatibilityCalculator.compute and exposes it as
-    # `result.decision_confidence`.  The STATIC DMFE path — the Phase 9
-    # fixed-weight baseline used for research comparison — leaves it None.
-    # This assignment used to live inside the `result is None` branch only, so
-    # with `admfe.mode = static` (result present, decision_confidence None)
-    # `confidence` was never bound and the whole endpoint raised
-    # UnboundLocalError.  The score-derived value below is the documented
-    # fallback and is now applied on every path that lacks an engine value.
-    if result is not None and result.decision_confidence is not None:
-        confidence = result.decision_confidence
-    else:
-        confidence = round(min(99.0, 70.0 + overall * 0.35), 1)
+        # Confidence: use the real recorded engine value when it exists;
+        # otherwise keep the float for API compatibility but flag it.
+        if stored.decision_confidence is not None:
+            confidence = round(float(stored.decision_confidence), 1)
+            confidence_fallback = False
+        else:
+            confidence = round(min(99.0, 70.0 + overall * 0.35), 1)
+            confidence_fallback = True
 
-    # Timeline from real lifecycle events
-    c_at = req.created_at or datetime.now(timezone.utc)
-    if c_at.tzinfo is None:
-        c_at = c_at.replace(tzinfo=timezone.utc)
-
-    timeline = [
-        XAITimelineItem(
-            title="Request Generated",
-            timestamp=c_at.strftime("%H:%M:%S"),
-            status="completed",
-            description=f"Request #{req_id} created ({provider_name})",
-        ),
-        XAITimelineItem(
-            title="DMFE Evaluation",
-            timestamp=(c_at + timedelta(seconds=2)).strftime("%H:%M:%S"),
-            status="completed",
-            description=(
-                f"Compatibility score {overall:.1f}% vs threshold {threshold:.0f}%"
+        # Timeline from REAL recorded timestamps (no synthetic +2/+4/+6s).
+        c_at = req.created_at or datetime.now(timezone.utc)
+        timeline = [
+            XAITimelineItem(
+                title="Request Generated",
+                timestamp=_ts(c_at) or "",
+                status="completed",
+                description=f"Request #{req_id} created ({provider_name})",
             ),
-        ),
-        XAITimelineItem(
-            title="Decision Generated",
-            timestamp=(c_at + timedelta(seconds=4)).strftime("%H:%M:%S"),
-            status="completed" if overall >= threshold else "pending",
-            description=decision,
-        ),
-    ]
-    if trip_metrics:
-        timeline.append(XAITimelineItem(
-            title="Trip Dispatched",
-            timestamp=(c_at + timedelta(seconds=6)).strftime("%H:%M:%S"),
-            status="completed",
-            description=f"Assigned to {trip_metrics['trip_code']}",
-        ))
+            XAITimelineItem(
+                title="DMFE Evaluation",
+                timestamp=_ts(stored.created_at) or "",
+                status="completed",
+                description=(
+                    f"Compatibility score {overall:.1f}% vs threshold {threshold:.0f}%"
+                ),
+            ),
+            XAITimelineItem(
+                title="Decision Generated",
+                timestamp=_ts(stored.created_at) or "",
+                status="completed" if is_shared else "pending",
+                description=decision,
+            ),
+        ]
+        if trip is not None:
+            timeline.append(XAITimelineItem(
+                title="Trip Dispatched",
+                timestamp=_ts(trip.created_at) or "",
+                status="completed",
+                description=f"Assigned to {trip.trip_code or ''}",
+            ))
+        if trip is not None and trip.status == "Completed":
+            timeline.append(XAITimelineItem(
+                title="Trip Completed",
+                timestamp=_ts(getattr(trip, "completed_at", None)) or "",
+                status="completed",
+                description=f"Trip {trip.trip_code or ''} completed",
+            ))
+    else:
+        # ── Fresh request (no recorded decision yet): live evaluation ──────
+        # A-DMFE: use the context-adjusted effective threshold for consistency.
+        # The context is built once per batch (passed in compute_kwargs) so we do
+        # not re-scan the whole fleet for every single request.
+        if (compute_kwargs or {}).get("mode") == "adaptive":
+            from app.dmfe.adaptive.decision import effective_threshold
+
+            context = (compute_kwargs or {}).get("context")
+            try:
+                threshold = effective_threshold(threshold, context)
+            except Exception:
+                pass
+
+        partners = (
+            db.query(SimulationRequest)
+            .filter(SimulationRequest.id != req_id)
+            .order_by(SimulationRequest.created_at.desc())
+            .limit(_MAX_PARTNERS)
+            .all()
+        )
+        result = _best_partner(calculator, db, req, partners, compute_kwargs)
+
+        if result is not None:
+            fs = result.factor_scores
+            details = result.factor_details
+            overall = result.compatibility_score
+            decision = (
+                "Compatible for Batching" if overall >= threshold
+                else "Standalone Direct Routing"
+            )
+            pickup_dist_km = round((details.get("pickup_distance_m") or 0) / 1000.0, 2)
+            time_diff_min = details.get("time_diff_min") or 0.0
+            route_pct = round((fs.get("route", 0) or 0) * 100.0, 1)
+            delay_min = result.estimated_delay_min
+            partner_ids = [i for i in result.request_ids if i != req_id]
+
+            if overall >= threshold:
+                decision_summary = (
+                    f"Compatibility score {overall:.1f}% ≥ threshold {threshold:.0f}% — "
+                    f"request can share a vehicle with #{partner_ids[0] if partner_ids else '?'}"
+                )
+                status = "Compatible"
+            else:
+                decision_summary = (
+                    f"Compatibility score {overall:.1f}% < threshold {threshold:.0f}% — "
+                    f"dispatched as an individual trip"
+                )
+                status = "Incompatible"
+
+            reason_bullets = result.reasons or []
+            if overall >= threshold:
+                reason = "Compatible: " + "; ".join(
+                    r[2:] for r in reason_bullets if r.startswith("✓")
+                )[:300]
+            else:
+                blockers = [r[2:] for r in reason_bullets if r.startswith("✗")]
+                reason = ("Rejected from batching: " + "; ".join(blockers)[:300]
+                          if blockers else decision_summary)
+
+            factors = XAIFactors(
+                pickup_distance_score=round(fs.get("pickup", 0) * 100.0, 1),
+                destination_similarity=route_pct,
+                estimated_delay_score=round(
+                    max(0.0, 1.0 - delay_min / 20.0) * 100.0, 1
+                ),
+                vehicle_capacity_score=round(fs.get("capacity", 0) * 100.0, 1),
+                priority_score=round(fs.get("priority", 0) * 100.0, 1),
+                overall_compatibility_score=overall,
+                pickup_distance_km=pickup_dist_km,
+                time_difference_min=time_diff_min,
+                route_similarity_pct=route_pct,
+                estimated_delay_min=delay_min,
+            )
+        else:
+            factors = XAIFactors(
+                pickup_distance_score=50.0,
+                destination_similarity=50.0,
+                estimated_delay_score=50.0,
+                vehicle_capacity_score=90.0,
+                priority_score=60.0,
+                overall_compatibility_score=0.0,
+            )
+            overall = 0.0
+            decision = "Standalone Direct Routing"
+            decision_summary = "No comparable partner request found — dispatched individually."
+            status = "Incompatible"
+            reason = "No nearby request with overlapping route/time window to batch with."
+            partner_ids = []
+
+        # Decision confidence.
+        #
+        # The A-DMFE (adaptive) path computes a real confidence in
+        # CompatibilityCalculator.compute and exposes it as
+        # `result.decision_confidence`.  The STATIC DMFE path — the Phase 9
+        # fixed-weight baseline used for research comparison — leaves it None.
+        if result is not None and result.decision_confidence is not None:
+            confidence = result.decision_confidence
+            confidence_fallback = False
+        else:
+            confidence = round(min(99.0, 70.0 + overall * 0.35), 1)
+            confidence_fallback = True
+
+        # Timeline from real lifecycle events (only the fresh-request path
+        # uses the synthetic offsets — no recorded timestamps exist).
+        c_at = req.created_at or datetime.now(timezone.utc)
+        timeline = [
+            XAITimelineItem(
+                title="Request Generated",
+                timestamp=_ts(c_at) or "",
+                status="completed",
+                description=f"Request #{req_id} created ({provider_name})",
+            ),
+            XAITimelineItem(
+                title="DMFE Evaluation",
+                timestamp=(c_at + timedelta(seconds=2)).strftime("%H:%M:%S"),
+                status="completed",
+                description=(
+                    f"Compatibility score {overall:.1f}% vs threshold {threshold:.0f}%"
+                ),
+            ),
+            XAITimelineItem(
+                title="Decision Generated",
+                timestamp=(c_at + timedelta(seconds=4)).strftime("%H:%M:%S"),
+                status="completed" if overall >= threshold else "pending",
+                description=decision,
+            ),
+        ]
+        if trip_metrics:
+            timeline.append(XAITimelineItem(
+                title="Trip Dispatched",
+                timestamp=(c_at + timedelta(seconds=6)).strftime("%H:%M:%S"),
+                status="completed",
+                description=f"Assigned to {trip_metrics['trip_code']}",
+            ))
+
+        key_reasons = [
+            b[2:] for b in (result.reasons if result is not None else [])
+            if b.startswith(("✓", "✗", "ℹ️"))
+        ] or [decision_summary] if result is not None else [reason]
 
     # ── Live-map link data (additive; no engine/decision logic involved) ────
-    # The highlighted request set = the request itself + XAI-evaluated partner
-    # IDs + the real dispatched-trip member IDs (deduped), so both the
-    # evaluated pair and the actual trip group appear on the map.
+    # The highlighted request set = the request itself + partner IDs + the
+    # real dispatched-trip member IDs (deduped).
     related_ids = [req_id, *partner_ids]
     if trip is not None:
         related_ids = [req_id, *partner_ids, *json_loads(trip.request_ids_json, [])]
     request_rows = _load_request_rows(db, related_ids)
     related_requests = _build_related_request_points(request_rows, related_ids)
-
-    if result is not None:
-        reason_bullets = result.reasons or []
-        key_reasons = [
-            b[2:] for b in reason_bullets
-            if b.startswith(("✓", "✗", "ℹ️"))
-        ] or [decision_summary]
-    else:
-        key_reasons = [reason]
 
     return XAIExplanationItem(
         id=req_id,
@@ -399,6 +567,7 @@ def _generate_explanation_for_request(
         decision_summary=decision_summary,
         reason=reason,
         confidence_score=confidence,
+        confidence_fallback=confidence_fallback,
         pickup_address=req.pickup_address or "Coimbatore",
         drop_address=req.drop_address or "Destination",
         pickup_lat=round(float(req.pickup_lat or 0.0), 6),
@@ -479,7 +648,7 @@ class XAIService:
         decision: Optional[str] = None,
         status: Optional[str] = None,
         search: Optional[str] = None,
-        limit: int = 100,
+        limit: int = 50,
         request_id: Optional[int] = None,
     ) -> List[XAIExplanationItem]:
         query = db.query(SimulationRequest)
@@ -502,16 +671,22 @@ class XAIService:
             else:
                 query = query.filter(func.lower(SimulationRequest.status) == status.lower())
 
-        # Search/decision are post-filtered in Python, so the SQL limit must
-        # NOT be applied first or rows beyond the newest `limit` can never
-        # match those filters.  Apply the limit only to the final result.
+        # Search/decision are post-filtered in Python, so the SQL limit is
+        # applied to a small multiple of the requested limit rather than to
+        # only the first `limit` rows OR the whole table.  Loading the full
+        # table here would pairwise-evaluate every cached-miss request on a
+        # 12K+ row database (O(rows × _MAX_PARTNERS)); the bounded scan keeps
+        # the initial UI/API retrieval fast while still honouring explicit
+        # larger `limit` requests proportionally.
         has_post_filters = (
             (decision and decision.lower() != "all")
             or bool(search)
         )
+        scan_limit = limit
+        if has_post_filters:
+            scan_limit = limit * _POST_FILTER_SCAN_MULTIPLIER
         query = query.order_by(SimulationRequest.created_at.desc())
-        if not has_post_filters:
-            query = query.limit(limit)
+        query = query.limit(scan_limit)
         requests = query.all()
 
         # Provider map
@@ -545,6 +720,25 @@ class XAIService:
                 lazy["trip_by_request"] = trip_by_request
             return lazy["trip_by_request"]
 
+        def _batch_index() -> Dict[int, Any]:
+            # Request -> stored-decision DMFEBatch map (latest first), so a
+            # dispatched request's explanation replays what was actually
+            # recorded instead of a fresh recompute.
+            if "batch_by_request" not in lazy:
+                batch_by_request: Dict[int, Any] = {}
+                for b in (
+                    db.query(DMFEBatch)
+                    .filter(DMFEBatch.status.in_(_STORED_BATCH_STATUSES))
+                    .order_by(DMFEBatch.id.desc())
+                    .limit(_STORED_DECISION_SCAN_LIMIT)
+                    .all()
+                ):
+                    for rid in json_loads(b.request_ids_json, []):
+                        if rid not in batch_by_request:
+                            batch_by_request[rid] = b
+                lazy["batch_by_request"] = batch_by_request
+            return lazy["batch_by_request"]
+
         explanations = []
         search_lower = search.lower() if search else None
 
@@ -557,7 +751,7 @@ class XAIService:
             else:
                 exp = _generate_explanation_for_request(
                     db, self._calculator, req, pname, threshold,
-                    _compute_kwargs(), _trip_index(),
+                    _compute_kwargs(), _trip_index(), _batch_index(),
                 )
                 self._cache_put(req.id, exp)
 

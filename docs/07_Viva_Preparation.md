@@ -29,7 +29,7 @@ A: We use JWT (JSON Web Tokens) for stateless authentication, bcrypt for passwor
 A: `React.lazy()` enables code-splitting. Instead of loading the entire application bundle on the first visit, it dynamically loads components (like the Admin Dashboard) only when the user navigates to them, significantly improving initial load performance.
 
 **Q: How does the Live Tracking map work?**
-A: It uses React Leaflet combined with the Google Maps API. The driver's location is pushed in real-time from the backend via WebSockets, and the React state updates the marker's latitude/longitude without reloading the page.
+A: The map renders driver/vehicle markers and Active-trip polylines from the backend API over the Google Maps API. Positions come from the seeded simulator and are refreshed by HTTP polling on a 2.5–15 s cadence (no WebSocket/push channel); each trip also displays its engine decision confidence, with score-derived values flagged "(estimated)".
 
 ## 5. Database (PostgreSQL / SQLAlchemy)
 **Q: How did you store three different types of bookings in the database?**

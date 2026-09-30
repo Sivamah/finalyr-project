@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class NotificationItem(BaseModel):
@@ -13,8 +13,7 @@ class NotificationItem(BaseModel):
     is_read: bool = False
     created_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class NotificationStats(BaseModel):

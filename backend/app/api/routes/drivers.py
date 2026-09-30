@@ -66,10 +66,10 @@ def create_driver(data: DriverCreate, db: SessionDep, current_user: CurrentUser)
 @router.get("/api/drivers/{driver_id}", response_model=DriverResponse)
 def get_driver(driver_id: int, db: SessionDep, current_user: CurrentUser):
     """Get single driver details."""
-    drivers = driver_service.get_drivers(db, search=str(driver_id), limit=1)
-    if not drivers:
+    driver = db.query(Driver).filter(Driver.id == driver_id).first()
+    if not driver:
         raise HTTPException(404, "Driver not found")
-    return drivers[0]
+    return driver_service.serialize_driver(db, driver)
 
 
 @router.patch("/api/drivers/{driver_id}", response_model=DriverResponse)
@@ -108,12 +108,8 @@ def update_driver(driver_id: int, data: DriverUpdate, db: SessionDep, current_us
 @router.delete("/api/drivers/{driver_id}")
 def delete_driver(driver_id: int, db: SessionDep, current_user: CurrentUser):
     """Delete a driver."""
-    driver = db.query(Driver).filter(Driver.id == driver_id).first()
-    if not driver:
-        raise HTTPException(404, "Driver not found")
-    d_name = driver.name
-    db.delete(driver)
-    db.commit()
+    from app.services.deletion_service import safe_delete_driver
+    d_name = safe_delete_driver(driver_id, db)
     log_system_notification(
         db,
         title="Driver Removed",
@@ -200,12 +196,8 @@ def update_vehicle(vehicle_id: int, data: FullVehicleUpdate, db: SessionDep, cur
 @router.delete("/api/vehicles/{vehicle_id}")
 def delete_vehicle(vehicle_id: int, db: SessionDep, current_user: CurrentUser):
     """Delete a vehicle."""
-    vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(404, "Vehicle not found")
-    v_name = vehicle.name
-    db.delete(vehicle)
-    db.commit()
+    from app.services.deletion_service import safe_delete_vehicle
+    v_name = safe_delete_vehicle(vehicle_id, db)
     log_system_notification(
         db,
         title="Vehicle Removed",

@@ -1,0 +1,140 @@
+# FINAL FREEZE CHECK
+
+- **Date:** 2026-09-25
+- **Mode:** Read-only verification of the working tree, research integrity, and
+  evidence↔report consistency for the 13-task Final Hardening Pass. Source
+  logic was **not** modified during this check.
+- **HEAD:** `2d3b06a` (Merge branch 'origin/main' into main)
+- **Reports:** `docs/reports/FINAL_HARDENING_REPORT.md` (score 89 → 92.6/100)
+
+---
+
+## 1. Verification Summary
+
+| # | Check | Verdict | Evidence |
+|---|---|---|---|
+| 1 | Source integrity — no changes introduced by this check | **PASS** | working-tree inventory below; no edits made during freeze check |
+| 2 | Research integrity — A-DMFE logic untouched | **PASS** | zero diff on `app/dmfe/compatibility.py`, `app/dmfe/adaptive/`, OR-Tools route optimizer, reviewer code/results |
+| 3 | Tests | **PASS** | 138 tests ran, exit code 0 (dots verified programmatically: 72 + 66 = 138); no constraint/regression warnings in project code |
+| 4 | E2E soak | **PASS** | 4 runs (N=10 / 50 / 50 / 100), 17 checks each, **0 failures**; second run dispatches nothing (idempotent) |
+| 5 | Performance evidence | **PASS** | XAI decision-filter **1.162 s** (was >300 s timeout); limit50 no-filter 1.205 s; limit200 no-filter 0.393 s; batch N=100 0.5967 s |
+| 6 | Documentation accuracy | **PASS** (3 adjustments) | `pytest`/`verify_admfe`/`lint` evidence regenerated fresh; report wording corrected (see §4) |
+| 7 | Unexpected changes | **NONE introduced** by this check | 43 tracked `tmp*.csv` deletions + regenerated `unified_validation.json` are pending working-tree changes |
+
+---
+
+## 2. Research Integrity (Check 2)
+
+`git status` + targeted diffs confirm **zero modifications** to:
+
+- CompatibilityCalculator weights / formulas / factors (`compatibility.py`)
+- Adaptive threshold / BQS / corridor logic and defaults (`adaptive/`)
+- OR-Tools model construction, solver parameters, relaxed-path handling
+- Reviewer logic and any review-scoring output
+
+The four research-adjacent files that carry uncommitted diffs contain only
+**additive/defensive, prior-session** changes — no formula/threshold/weight
+change:
+- `decision_engine.py` — `decision_confidence` passthrough (nullable, additive)
+- `driver_selection.py` — lifecycle guard (rejects dispatch of terminal requests)
+- `pipeline.py` — pool-accounting N+1 fix + `decision_confidence` passthrough
+- `dmfe/models.py` — nullable `decision_confidence` column
+
+Consistent with FINAL_HARDENING_REPORT §5.
+
+---
+
+## 3. Evidence Cross-Check (Checks 3–5)
+
+All regenerated/recorded evidence captured in `%TEMP%\opencode`; every claim in
+the report was re-verified against the artifacts:
+
+| Report claim | Recorded evidence |
+|---|---|
+| 138 tests passing | `pytest_final2.txt` — `EXITCODE=0`, 138 dots (72 + 66) |
+| verify_admfe 53 passed, 0 failed | `admfe_final.txt` — `RESULT: 53 passed, 0 failed` |
+| lint clean (1 pre-existing warning) | `lint_final.txt` — only `AuthContext.jsx` fast-refresh warning |
+| build green | `build_final.txt` — `✓ built in 710ms` |
+| E2E N=10/50/50/100 → 17/17, 0 failures, idempotent | `e2e10.txt`, `e2e50a.txt`, `e2e50b.txt`, `e2e100.txt` |
+| XAI 1.205 / 0.393 / 1.162 s | `perf_full_after.txt` |
+| verify_all 24 passed / verify_demo PASS / verify_xai_map PASS / verify_unified_scoring PASS | `verify_all.txt`, `demo3.txt`, `xm.txt`, `us.txt` |
+
+Evidence-quality note (why regenerated this check):
+- On-disk `pytest_*.txt` previously lacked the summary line and `admfe.txt` /
+  `lint.txt` had been captured **before** their harness fixes. All three were
+  regenerated so on-disk artifacts match the report.
+- Be aware: this `pytest` run recreated 3 fresh upload-test artifacts
+  (`backend/datasets/tmp*.csv`, untracked) — see §5.
+
+---
+
+## 4. Documentation Adjustments Applied
+
+1. `FINAL_HARDENING_REPORT.md` §3 Task 9 — corrected "removed 70 *untracked*
+   tmp*.csv" → the files had been **committed**; cleanup leaves 43 tracked
+   deletions pending (this report).
+2. No other report claims required changes: score (92.6/100, +3.6, +4.05%),
+   test counts, XAI timings, E2E invariants all confirmed against evidence.
+
+---
+
+## 5. Working-Tree Inventory (Unexpected Changes)
+
+No database files are tracked or modified (`*.db`/`-shm`/`-wal` ignored per root
+`.gitignore` lines 6–8; `git diff --name-only` on `*.db` empty). Findings:
+
+1. **43 tracked deletions** — `backend/datasets/tmp*.csv` are transient
+   upload-test artifacts (vehicle-CSV fixtures) accidentally committed in bulk
+   commit `4f6a075`. **Decision: remain deleted** (cleanup is correct). Left as
+   **pending working-tree deletions** (not committed, not restored); recommend a
+   follow-up cleanup commit and a `backend/datasets/tmp*.csv` gitignore rule.
+2. **3 fresh untracked artifacts** — `tmp5rx9kf27.csv`, `tmp6j5m2keb.csv`,
+   `tmphstja51p.csv` recreated by the `pytest` rerun (upload test).
+   **Decision: removed** (confirmed pytest temp artifacts; 0 remain on disk).
+3. **`backend/evaluation/results/unified_validation.json`** — regenerated by the
+   verify harness. **Decision: reverted to HEAD** — the regenerated diff was
+   pure benchmark-timing churn (1,695+/1,559− from `pipeline_total_s`,
+   `sql_queries`, `avg_processing_ms` noise, not semantic change). The
+   validation PASS remains evidenced in `%TEMP%\opencode\us.txt`.
+4. **Pre-existing untracked artifacts (not from this check):** `.opencode/`,
+   `backend/docs/` (incl. `reports/evidence/e2e_clearance.json`, dated 22 Sep,
+   predating this pass), `backend/scripts/e2e_clearance.py`, the new
+   hardening-pass scripts/tests (`e2e_hardening.py`, `perf_hardening.py`,
+   `test_assign_http_conflict.py`, `test_dispatch_idempotency.py`,
+   `test_xai_historical_replay.py`, `test_orchestration_failed_gate.py`), this
+   and the other `docs/reports/*.md`, `frontend/src/components/orchestration/`,
+   `currencyUtils.js`, `tileConfig.js`.
+
+Modified tracked files (33) are the documented hardening-pass + prior-session
+changes already described in FINAL_HARDENING_REPORT §3. No reviewer/research
+scores or weights are among them.
+
+---
+
+## 6. Non-Blocking Observations
+
+1. `AuthContext.jsx` fast-refresh structural warning (pre-existing; splitting
+   context to its own module would be a stylistic-only change).
+2. `StarletteDeprecationWarning` (httpx/testclient) and `SwigPy*` importlib
+   noise come from pinned third-party packages, not project code.
+3. Pytest's "N tests passed in …" terminal summary is suppressed by the
+   `-q`/launcher combination; the run is nevertheless proven by **138 dots +
+   exit code 0** (count verified programmatically).
+
+---
+
+## FINAL FREEZE STATUS
+
+```
+FREEZE STATUS:
+  Source integrity:       PASS — no modifications made during this freeze check
+  Research integrity:     PASS — zero diff on compatibility/adaptive/OR-Tools/reviewer
+  Tests:                  PASS — 138 collected/passed, exit 0 (regenerated evidence)
+  E2E:                    PASS — 17/17 checks, 0 failures at N=10/50/50/100; second run idempotent
+  Performance evidence:   PASS — XAI decision-filter 1.162 s (was >300 s); limit50 1.205 s; limit200 0.393 s; batch N=100 0.597 s
+  Documentation accuracy: PASS with 3 adjustments (pytest/admfe/lint evidence regenerated; tmp*.csv were tracked, not untracked)
+  Unexpected changes:     43 tracked tmp*.csv deletions remain pending (kept deleted — test artifacts);
+                         unified_validation.json reverted to HEAD (timing-noise churn);
+                         3 fresh tmp*.csv removed; none introduced by this check
+  Final freeze recommendation: APPROVE — freeze is clean with the documented adjustments and pending-cleanup caveats
+```

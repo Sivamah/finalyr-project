@@ -2,6 +2,12 @@
 
 Date: 2026-08-06 · Scope: AI-Powered Unified Mobility & Delivery System (A-DMFE)
 
+> **Historical status note (added 2026-09-28):** the legacy `POST /api/orchestration/optimize`
+> endpoint described in this report was **RETIRED** after this document was written. It now returns
+> **HTTP 410 Gone** and is no longer called by the application. The live workflow is
+> `POST /api/dmfe/analyze` / `POST /api/dmfe/run`, with results served by
+> `GET /api/orchestration/results`. Any mention of `/optimize` below is historical.
+
 ---
 
 ## 1. Root Causes Found (with evidence)
@@ -83,7 +89,7 @@ endpoint field mapping), `backend/app/services/driver_service.py` +
 `App.css`, `assets/react.svg`, `assets/vite.svg` (+ manifest README). Nothing deleted.
 
 ## 4. APIs Fixed
-- `POST /api/orchestration/optimize` — was 500 "database is locked" → 200
+- `POST /api/orchestration/optimize` — was 500 "database is locked" → 200 *(historical — retired in a later phase, now HTTP 410)*
 - `GET /api/orchestration/results` — was 500 (nonexistent Trip fields) → 200
 - `GET /api/drivers/stats`, `GET /api/vehicles/stats` — were `PendingRollbackError` → 200
 - `POST /api/dmfe/run` — full pipeline 16.9 s → sub-0.25 s
@@ -102,7 +108,7 @@ endpoint field mapping), `backend/app/services/driver_service.py` +
 | `GET /api/xai/explanations?limit=20` cold | 7.17 s | 0.16 s |
 | `GET /api/xai/explanations?limit=20` warm | — | 0.01–0.07 s |
 | `GET /api/orchestration/results` | 500 | 0.02–0.05 s |
-| `POST /api/orchestration/optimize` | locked | 0.10 s (12 pending reqs) |
+| `POST /api/orchestration/optimize` | locked | 0.10 s (12 pending reqs) *(historical — retired, now HTTP 410)* |
 | `GET /api/drivers/stats`, `vehicles/stats` | error | 0.03–0.05 s |
 | `GET /api/dashboard/stats` | full-table load | 0.03 s |
 | DriverSelector per trip | ~100 queries | 3 queries |
@@ -129,8 +135,9 @@ endpoint field mapping), `backend/app/services/driver_service.py` +
   consider time-bucketed SQL for production).
 - `slowapi>=0.1.9` sits unused in `requirements.txt` (verified never imported) —
   remove when cleaning dependencies.
-- Both `OptimizationResult` (legacy) and `Trip` (current) store results; live
-  dashboards read `Trip`, legacy writes remain in `/optimize` — consolidation candidate.
+- Both `OptimizationResult` (legacy) and `Trip` (current) store results; the
+  legacy `/optimize` writer is now RETIRED (HTTP 410), so live dashboards read
+  `Trip` only — the consolidation candidate is now effectively moot.
 - SQLite dev DB with WAL is production-adjacent; PostgreSQL only adds pool tuning.
 - Per-page 2.5 s polls remain while the tab is visible (intended for live views).
 
@@ -148,7 +155,7 @@ duplication, cold XAI overview path.
 
 ## 10. IEEE Demo Readiness Score: **9.6 / 10**
 All demo flows verified at interactive speed: login → dashboard (30 ms) →
-simulate + optimize (0.1 s) → DMFE run (0.2 s, shared + individual trips with
+simulate + optimize (0.1 s) *[historical: the "optimize" step is the retired legacy endpoint, now 410]* → DMFE run (0.2 s, shared + individual trips with
 real arrival times) → XAI explanations/overview (ms warm) → live map/playback/
 scenarios/notifications. Deductions: warm-up of XAI cache on first page visit
 (≤5 s) and 2.5 s live-view polling cadence by design.

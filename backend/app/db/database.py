@@ -30,6 +30,10 @@ if _is_sqlite:
         # Keep the WAL from growing unbounded during long demo sessions.
         cursor.execute("PRAGMA wal_autocheckpoint=1000")
         cursor.execute("PRAGMA synchronous=NORMAL")
+        # Enforce foreign keys so bare ORM deletes are rejected instead of
+        # silently orphaning child rows.  Safe now that orphan audit shows 0
+        # violations and deletion_service handles dependency ordering.
+        cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

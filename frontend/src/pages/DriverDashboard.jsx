@@ -171,7 +171,7 @@ export default function DriverDashboard() {
       />
 
       {/* ── Stats ────────────────────────────────────────────────────────── */}
-      <div className="space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
         <div>
           <h3 className="section-label mb-3">Driver Network</h3>
           <DriverStatistics stats={driverStats} />

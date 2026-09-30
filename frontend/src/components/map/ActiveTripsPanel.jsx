@@ -44,7 +44,7 @@ export default function ActiveTripsPanel({ trips = [], onCompleted }) {
   };
 
   return (
-    <div className="pointer-events-auto bg-[#0A0F1A]/75 rounded-2xl backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] w-[280px] overflow-hidden">
+    <div className="pointer-events-auto bg-[#0A0F1A]/75 rounded-2xl backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] w-full md:w-[280px] max-w-full overflow-hidden">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -80,7 +80,7 @@ export default function ActiveTripsPanel({ trips = [], onCompleted }) {
                 title="Mark this trip complete and release its driver/vehicle"
               >
                 <CheckCircle2 className="h-3.5 w-3.5" />
-                {completingId === t.id ? '…' : 'Complete'}
+                {completingId === t.id ? '…' : 'End Trip'}
               </button>
             </div>
           ))}

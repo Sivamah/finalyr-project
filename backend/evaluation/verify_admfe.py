@@ -509,20 +509,23 @@ def test_end_to_end(db: Session) -> None:
     reqs = _seed_requests(db, n=14)
 
     result = PipelineRunner().run(db, limit=200)
-    total_covered = (result.shared_trips + result.individual_trips)
+    # NOTE: shared_trips / individual_trips are TRIP counts, not request
+    # counts — disjointness must be checked at request level.  A request is
+    # accounted exactly once when it is either Assigned (inside a shared or
+    # individual trip) or listed as unassigned.
+    statuses = {r.id: r.status for r in reqs}
+    processed = [r.id for r in reqs if r.status == "Assigned"]
     check("every request dispatched or reported unassigned",
           result.requests_processed == 14,
           f"processed={result.requests_processed}")
     check("assignments created", result.assignments_created > 0,
           str(result.assignments_created))
     check("no double processing (shared + individual disjoint)",
-          total_covered + len(result.unassigned) == 14)
+          len(processed) + len(result.unassigned) == 14)
 
     # Each request is either Assigned or still Pending (unassigned)
-    statuses = {r.id: r.status for r in reqs}
     unassigned_ids = {r.id for d in result.unassigned for r in [type(
         "R", (), {"id": d["request_ids"][0]})()]}
-    processed = [r.id for r in reqs if r.status == "Assigned"]
     check("covered requests are Assigned",
           all(statuses[i] == "Assigned" for i in processed),
           f"assigned={len(processed)}")

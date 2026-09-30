@@ -57,7 +57,15 @@ class Vehicle(Base):
     status              = Column(String, default="Available")  # Available / Busy / Offline / Maintenance
     current_lat         = Column(Float, default=11.0168)
     current_lng         = Column(Float, default=76.9558)
-    current_driver_id   = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    # Named + use_alter breaks the drivers<->vehicles FK cycle: the constraint
+    # is created via ALTER after both tables exist (PostgreSQL), and is skipped
+    # on SQLite (supports_alter=False) which mirrors the previous behavior of
+    # not emitting an inline FK for this column.  The relationship is unchanged.
+    current_driver_id = Column(
+        Integer,
+        ForeignKey("drivers.id", name="fk_vehicles_current_driver_id", use_alter=True),
+        nullable=True,
+    )
     is_active           = Column(Boolean, default=True)
     created_at          = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -89,8 +97,8 @@ class DriverAssignmentHistory(Base):
     __tablename__ = "driver_assignment_history"
 
     id              = Column(Integer, primary_key=True, index=True)
-    driver_id       = Column(Integer, ForeignKey("drivers.id"), nullable=False)
-    vehicle_id      = Column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    driver_id       = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    vehicle_id      = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
     driver_name     = Column(String, nullable=True)
     vehicle_name    = Column(String, nullable=True)
     assignment_time = Column(DateTime(timezone=True), server_default=func.now())
@@ -145,9 +153,9 @@ class DriverAssignment(Base):
     __tablename__ = "assignments"
 
     id              = Column(Integer, primary_key=True, index=True)
-    trip_id         = Column(Integer, ForeignKey("trips.id"), nullable=False)
-    driver_id       = Column(Integer, ForeignKey("drivers.id"), nullable=False)
-    vehicle_id      = Column(Integer, ForeignKey("vehicles.id"), nullable=False)
+    trip_id         = Column(Integer, ForeignKey("trips.id"), nullable=True)
+    driver_id       = Column(Integer, ForeignKey("drivers.id"), nullable=True)
+    vehicle_id      = Column(Integer, ForeignKey("vehicles.id"), nullable=True)
     driver_name     = Column(String, default="")
     vehicle_name    = Column(String, default="")
     assignment_type = Column(String, default="AUTO")  # AUTO / MANUAL

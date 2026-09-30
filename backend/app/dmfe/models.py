@@ -56,6 +56,11 @@ class DMFEBatch(Base):
     # Additive, nullable — existing rows default to 0.0 / NULL.
     predicted_utilization_pct = Column(Float, default=0.0)
 
+    # Engine decision confidence (%) at batch-formation time (A-DMFE
+    # `decision_confidence`).  Additive and nullable — historical rows have
+    # no recorded value; the XAI layer labels those as "(estimated)".
+    decision_confidence = Column(Float, nullable=True)
+
     created_at          = Column(DateTime(timezone=True), server_default=func.now())
 
 

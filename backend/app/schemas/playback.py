@@ -1,5 +1,5 @@
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ScenarioCreate(BaseModel):
@@ -20,8 +20,7 @@ class ScenarioResponse(BaseModel):
     weather_condition: str = "Clear"
     is_preset: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SaveSimulationRequest(BaseModel):
@@ -43,8 +42,7 @@ class SavedSimulationResponse(BaseModel):
     events_timeline: List[Dict[str, Any]] = []
     created_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class PlaybackDashboardOverview(BaseModel):

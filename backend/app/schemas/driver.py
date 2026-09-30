@@ -1,5 +1,5 @@
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
@@ -42,8 +42,7 @@ class DriverResponse(BaseModel):
     assigned_vehicle_name: Optional[str] = "None"
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FullVehicleCreate(BaseModel):
@@ -94,8 +93,7 @@ class FullVehicleResponse(BaseModel):
     current_driver_name: Optional[str] = "Unassigned"
     is_active: bool = True
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class DriverStats(BaseModel):
@@ -122,8 +120,7 @@ class AssignmentHistoryItem(BaseModel):
     completion_time: Optional[str] = None
     status: str = "Active"
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class VehicleLocationItem(BaseModel):

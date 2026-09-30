@@ -10,96 +10,100 @@ export default function RequestAnalytics({ data = {} }) {
   const pendingRate = data.pending_rate_pct ?? 0;
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-sm mb-6">
-      <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-3">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
-          <PieChart className="h-5 w-5 text-indigo-400" />
+    <div className="glass-panel rounded-[20px] p-5 lg:p-6 shadow-sm mb-6">
+      <div className="flex items-center justify-between mb-5 border-b border-white/10 pb-4">
+        <h3 className="text-base font-display font-semibold text-white flex items-center gap-2">
+          <PieChart className="h-5 w-5 text-brand-primary" />
           Request Analytics Breakdown
         </h3>
-        <span className="text-xs bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2.5 py-1 rounded-full font-semibold">
+        <span className="text-[10px] bg-brand-primary/10 text-brand-primary border border-brand-primary/20 px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
           Operational Overview
         </span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Category Breakdown */}
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Service Volumes</p>
-          <div className="space-y-2">
+        <div className="glass-card bg-black/20 border border-white/5 rounded-[16px] p-4 lg:p-5 space-y-4">
+          <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">Service Volumes</p>
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-xs text-blue-400 font-medium">
-                <Bike className="h-3.5 w-3.5" /> Total Rides
+              <span className="flex items-center gap-2 text-xs text-blue-400 font-semibold">
+                <Bike className="h-4 w-4" /> Total Rides
               </span>
-              <span className="text-sm font-bold text-white font-mono">{rideCount}</span>
+              <span className="text-base font-bold text-white font-mono">{rideCount}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-xs text-orange-400 font-medium">
-                <Utensils className="h-3.5 w-3.5" /> Total Food
+              <span className="flex items-center gap-2 text-xs text-orange-400 font-semibold">
+                <Utensils className="h-4 w-4" /> Total Food
               </span>
-              <span className="text-sm font-bold text-white font-mono">{foodCount}</span>
+              <span className="text-base font-bold text-white font-mono">{foodCount}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-xs text-purple-400 font-medium">
-                <Package className="h-3.5 w-3.5" /> Total Parcels
+              <span className="flex items-center gap-2 text-xs text-purple-400 font-semibold">
+                <Package className="h-4 w-4" /> Total Parcels
               </span>
-              <span className="text-sm font-bold text-white font-mono">{parcelCount}</span>
+              <span className="text-base font-bold text-white font-mono">{parcelCount}</span>
             </div>
           </div>
         </div>
 
         {/* Distance & Travel Metrics */}
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-4 space-y-3">
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Distance & Estimates</p>
+        <div className="glass-card bg-black/20 border border-white/5 rounded-[16px] p-4 lg:p-5 space-y-4">
+          <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">Distance & Estimates</p>
           <div>
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <Navigation className="h-3.5 w-3.5 text-cyan-400" /> Avg Estimated Distance
+            <p className="text-xs text-brand-text-muted flex items-center gap-1.5 font-medium">
+              <Navigation className="h-4 w-4 text-cyan-400" /> Avg Estimated Distance
             </p>
-            <p className="text-xl font-bold text-cyan-400 font-mono mt-0.5">
-              {data.avg_estimated_distance_km ?? 0} <span className="text-xs font-normal text-gray-400">km</span>
+            <p className="text-2xl font-bold text-cyan-400 font-mono mt-1">
+              {data.avg_estimated_distance_km ?? 0} <span className="text-xs font-medium text-brand-text-muted">km</span>
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-400 flex items-center gap-1">
-              <Clock className="h-3.5 w-3.5 text-amber-400" /> Avg Estimated Travel Time
+            <p className="text-xs text-brand-text-muted flex items-center gap-1.5 font-medium">
+              <Clock className="h-4 w-4 text-amber-400" /> Avg Estimated Travel Time
             </p>
-            <p className="text-xl font-bold text-amber-400 font-mono mt-0.5">
-              ~{data.avg_estimated_travel_time_min ?? 0} <span className="text-xs font-normal text-gray-400">mins</span>
+            <p className="text-2xl font-bold text-amber-400 font-mono mt-1">
+              ~{data.avg_estimated_travel_time_min ?? 0} <span className="text-xs font-medium text-brand-text-muted">mins</span>
             </p>
           </div>
         </div>
 
         {/* Completion Rate Progress */}
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-4 flex flex-col justify-between">
+        <div className="glass-card bg-black/20 border border-white/5 rounded-[16px] p-4 lg:p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Completion Rate</span>
-              <span className="text-sm font-bold text-green-400 font-mono">{completionRate}%</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">Completion Rate</span>
+              <span className="text-xl font-bold text-brand-success font-mono">{completionRate}%</span>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2 overflow-hidden">
+            <div className="w-full bg-black/40 rounded-full h-3 mt-3 overflow-hidden border border-white/5">
               <div
-                className="bg-green-500 h-2.5 rounded-full transition-all duration-500"
+                className="bg-brand-success h-full rounded-full transition-all duration-500 relative"
                 style={{ width: `${Math.min(100, Math.max(0, completionRate))}%` }}
-              />
+              >
+                <div className="absolute inset-0 bg-white/20" />
+              </div>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">Percentage of requests processed & fulfilled</p>
+          <p className="text-[11px] text-brand-text-muted mt-3">Percentage of requests processed & fulfilled</p>
         </div>
 
         {/* Pending Rate Progress */}
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-4 flex flex-col justify-between">
+        <div className="glass-card bg-black/20 border border-white/5 rounded-[16px] p-4 lg:p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Pending Rate</span>
-              <span className="text-sm font-bold text-amber-400 font-mono">{pendingRate}%</span>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">Pending Rate</span>
+              <span className="text-xl font-bold text-brand-warning font-mono">{pendingRate}%</span>
             </div>
-            <div className="w-full bg-gray-700 rounded-full h-2.5 mt-2 overflow-hidden">
+            <div className="w-full bg-black/40 rounded-full h-3 mt-3 overflow-hidden border border-white/5">
               <div
-                className="bg-amber-500 h-2.5 rounded-full transition-all duration-500"
+                className="bg-brand-warning h-full rounded-full transition-all duration-500 relative"
                 style={{ width: `${Math.min(100, Math.max(0, pendingRate))}%` }}
-              />
+              >
+                <div className="absolute inset-0 bg-white/20" />
+              </div>
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">Percentage of requests remaining in active queue</p>
+          <p className="text-[11px] text-brand-text-muted mt-3">Percentage of requests remaining in active queue</p>
         </div>
       </div>
     </div>

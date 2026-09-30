@@ -154,11 +154,14 @@ def _fresh_db():
 
 
 def _fleet(db, n: int):
-    from app.db.models import Driver, Vehicle
+    from app.db.models import Driver, Provider, Vehicle
+    provider = Provider(name="Verify Provider", provider_type="Fleet")
+    db.add(provider)
+    db.flush()
     pairs = []
     for i in range(n):
         v = Vehicle(name=f"Vehicle {i}", vehicle_type="Car", capacity=4,
-                    status="Available", is_active=True, provider_id=1,
+                    status="Available", is_active=True, provider_id=provider.id,
                     current_lat=ANCHOR[0], current_lng=ANCHOR[1])
         db.add(v)
         db.flush()

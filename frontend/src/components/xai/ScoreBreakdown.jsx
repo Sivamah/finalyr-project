@@ -14,7 +14,7 @@ function SingleFactorBar({ label, value, icon: Icon, colorClass, description }) 
         </span>
         <span className="font-mono font-bold text-white">{hasValue ? `${roundedVal}%` : 'N/A'}</span>
       </div>
-      <div className="w-full bg-gray-900 rounded-full h-2 overflow-hidden border border-gray-700/50">
+      <div className="w-full bg-black/40 rounded-full h-2 overflow-hidden border border-white/10">
         <div
           className={`h-2 rounded-full transition-all duration-500 ${colorClass || 'bg-indigo-500'} ${hasValue ? '' : 'opacity-20'}`}
           style={{ width: `${Math.min(100, Math.max(0, roundedVal))}%` }}
@@ -72,8 +72,8 @@ export default function ScoreBreakdown({ factors = {} }) {
   ];
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-sm space-y-4">
-      <div className="flex items-center justify-between border-b border-gray-700 pb-3">
+    <div className="glass-card rounded-xl p-5 shadow-sm space-y-4">
+      <div className="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <Sliders className="h-4 w-4 text-indigo-400" />
           Explanation Factors & Feature Scores

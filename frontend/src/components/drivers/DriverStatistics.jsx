@@ -3,20 +3,20 @@ import { Users, UserCheck, UserX, UserMinus } from 'lucide-react';
 
 function StatCard({ label, value, icon: Icon, color, bg }) {
   return (
-    <div className="glass-card rounded-[20px] p-4 relative overflow-hidden group">
-      <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full blur-[36px] opacity-10 group-hover:opacity-25 transition-opacity duration-500 pointer-events-none" style={{ background: color }} />
+    <div className="glass-card rounded-[18px] p-3.5 relative overflow-hidden group">
+      <div className="absolute -right-8 -top-8 h-20 w-20 rounded-full blur-[30px] opacity-15 group-hover:opacity-30 transition-opacity duration-500 pointer-events-none" style={{ background: color }} />
       <div className="relative flex items-center justify-between">
         <div>
-          <p className="text-[10.5px] font-medium text-brand-text-muted truncate tracking-wide">{label}</p>
-          <p className="text-[22px] font-display font-semibold mt-1.5 tabular-nums tracking-tight" style={{ color }}>
+          <p className="text-[10px] font-medium text-brand-text-muted truncate tracking-wider uppercase">{label}</p>
+          <p className="text-[20px] font-display font-semibold mt-1 tabular-nums tracking-tight" style={{ color }}>
             {value}
           </p>
         </div>
         <div
-          className="p-2.5 rounded-xl border border-white/15 flex items-center justify-center"
-          style={{ background: bg, boxShadow: `0 0 18px ${bg}` }}
+          className="p-2 rounded-[10px] border border-white/10 flex items-center justify-center"
+          style={{ background: bg, boxShadow: `0 0 15px ${bg}` }}
         >
-          <Icon className="h-4.5 w-4.5" style={{ color }} />
+          <Icon className="h-4 w-4" style={{ color }} />
         </div>
       </div>
     </div>
@@ -39,7 +39,7 @@ export default function DriverStatistics({ stats = {} }) {
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
       {cards.map((c) => (
         <StatCard key={c.label} {...c} {...THEME[c.theme]} />
       ))}

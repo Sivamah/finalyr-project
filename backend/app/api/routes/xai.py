@@ -17,7 +17,7 @@ def get_explanations(
     decision: Optional[str] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-    limit: int = 100,
+    limit: int = 50,
 ):
     """
     Get Explainable AI decision explanations generated from simulation requests.

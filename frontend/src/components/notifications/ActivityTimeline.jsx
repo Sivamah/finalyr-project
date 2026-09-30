@@ -28,25 +28,25 @@ export default function ActivityTimeline({ timeline = [] }) {
 
   return (
     <div className="w-full">
-      <div className="relative pl-7 space-y-5 before:absolute before:left-[9px] before:top-2 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-brand-primary/40 before:via-white/[0.08] before:to-transparent">
+      <div className="relative pl-7 space-y-6 before:absolute before:left-[9px] before:top-2.5 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-brand-primary/50 before:via-white/[0.1] before:to-transparent">
         {timeline.map((item, idx) => {
           const Icon = CATEGORY_ICON[item.category] || Info;
           const color = CATEGORY_COLOR[item.category] || CATEGORY_COLOR.Information;
 
           return (
-            <div key={item.id || idx} className="relative flex items-start gap-3.5">
-              <div className={`absolute -left-7 top-0 h-[18px] w-[18px] rounded-full border flex items-center justify-center backdrop-blur-md ${color}`}>
-                <Icon className="h-[10px] w-[10px]" />
+            <div key={item.id || idx} className="relative flex items-start gap-4 group">
+              <div className={`absolute -left-7 top-0.5 h-[18px] w-[18px] rounded-full border flex items-center justify-center backdrop-blur-md ring-[3px] ring-[#0B1120] ${color} transition-colors group-hover:border-white/30`}>
+                <Icon className="h-[9px] w-[9px]" />
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] font-semibold text-white leading-snug">{item.title}</p>
+                <p className="text-[13px] font-bold text-white leading-snug tracking-wide">{item.title}</p>
                 {item.description && (
-                  <p className="text-[12px] text-brand-text-secondary mt-0.5 leading-relaxed line-clamp-2">{item.description}</p>
+                  <p className="text-[11.5px] text-brand-text-secondary mt-1 leading-relaxed line-clamp-2">{item.description}</p>
                 )}
               </div>
 
-              <span className="text-[10.5px] font-mono font-medium text-brand-text-muted shrink-0 mt-0.5">
+              <span className="text-[10.5px] font-mono font-medium text-brand-text-muted shrink-0 text-right mt-0.5">
                 {item.time_str}
               </span>
             </div>

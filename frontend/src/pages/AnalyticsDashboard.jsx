@@ -8,8 +8,6 @@ import RequestAnalytics from '../components/analytics/RequestAnalytics';
 import ProviderAnalytics from '../components/analytics/ProviderAnalytics';
 import TimeAnalytics from '../components/analytics/TimeAnalytics';
 import ReportExport from '../components/analytics/ReportExport';
-import PageHeader from '../components/ui/PageHeader';
-import StatusBadge from '../components/ui/StatusBadge';
 
 export default function AnalyticsDashboard() {
   const [filters, setFilters] = useState({
@@ -95,19 +93,33 @@ export default function AnalyticsDashboard() {
   };
 
   return (
-    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
-      <PageHeader
-        eyebrow="Analytics"
-        live
-        title="Operational Intelligence"
-        description="Real-time throughput, provider performance and request lifecycle metrics across the network."
-        actions={
-          <div className="flex items-center gap-2.5">
-            <StatusBadge tone="success" label="Auto-refresh 10s" pulse />
-            <ReportExport analyticsData={analyticsData} filters={filters} />
+    <div className="space-y-5 pb-10 max-w-[1600px] mx-auto">
+      {/* 1. Page Header */}
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-2">
+        <div>
+          <p className="section-label mb-2 flex items-center gap-2">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-brand-danger opacity-60 animate-ping" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-danger" />
+            </span>
+            Analytics
+          </p>
+          <h1 className="page-title">Operational Intelligence</h1>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-brand-text-secondary max-w-2xl">
+            Real-time throughput, provider performance and request lifecycle metrics across the network.
+          </p>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="bg-brand-success/10 border border-brand-success/20 text-brand-success px-3 py-1.5 rounded-[8px] text-[11px] font-bold uppercase tracking-wider flex items-center gap-2">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-brand-success opacity-60 animate-ping" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-brand-success" />
+            </span>
+            Auto-refresh 10s
           </div>
-        }
-      />
+          <ReportExport analyticsData={analyticsData} filters={filters} />
+        </div>
+      </div>
 
       {/* 1. Filters */}
       <AnalyticsFilters

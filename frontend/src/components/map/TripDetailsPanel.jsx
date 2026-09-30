@@ -31,7 +31,7 @@ function fmt(value, digits, suffix) {
 
 function Shell({ children }) {
   return (
-    <div className="bg-[#0A0F1A]/75 rounded-2xl p-4 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] w-[300px]">
+    <div className="bg-[#0A0F1A]/80 rounded-2xl p-4 sm:p-5 backdrop-blur-xl border border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.5)] w-full md:w-[320px] max-w-full">
       {children}
     </div>
   );
@@ -63,7 +63,7 @@ function PanelHeader({ meta, title, onClose, closeTitle }) {
 
 function AddressRow({ Icon, tone, label, value }) {
   return (
-    <div className="flex items-start gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-3">
+    <div className="flex items-start gap-3 bg-white/[0.02] border border-white/5 rounded-xl p-3.5">
       <div
         className="h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 border"
         style={{ background: `${tone}22`, borderColor: `${tone}4D` }}
@@ -72,7 +72,7 @@ function AddressRow({ Icon, tone, label, value }) {
       </div>
       <div className="min-w-0 flex-1">
         <span className="text-[10px] uppercase tracking-wider text-white/40 font-bold block mb-0.5">{label}</span>
-        <span className="text-[12px] text-white/90 font-medium truncate block">{value || '—'}</span>
+        <span className="text-[12.5px] text-white/90 font-medium truncate block">{value || '—'}</span>
       </div>
     </div>
   );
@@ -150,14 +150,16 @@ function DecisionCardPanel({ highlight, onDismiss }) {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 mb-4">
+      <div className="grid grid-cols-2 gap-2 mb-5">
         {[
           ['Compatibility', fmt(highlight.score, 1, '%')],
-          ['Confidence', fmt(highlight.confidence, 1, '%')],
+          ['Confidence', highlight.confidenceFallback
+            ? `${fmt(highlight.confidence, 1, '%')} (est)`
+            : fmt(highlight.confidence, 1, '%')],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-2">
-            <span className="block text-[9px] uppercase tracking-wider text-white/40 font-bold">{label}</span>
-            <span className="text-[16px] font-semibold text-white tabular-nums">{value}</span>
+          <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <span className="block text-[9px] uppercase tracking-wider text-white/40 font-bold mb-0.5">{label}</span>
+            <span className="text-[17px] font-bold text-white tabular-nums tracking-tight">{value}</span>
           </div>
         ))}
       </div>
@@ -202,7 +204,7 @@ function DecisionCardPanel({ highlight, onDismiss }) {
       )}
 
       {highlight.factors && (
-        <div className="space-y-1 mb-4 text-[10.5px] border-t border-white/10 pt-3">
+        <div className="space-y-1.5 mb-5 text-[11px] border-t border-white/10 pt-4">
           {[
             ['Pickup distance', fmt(f.pickup_distance_km, 2, ' km')],
             ['Route similarity', fmt(f.route_similarity_pct, 1, '%')],
@@ -210,8 +212,8 @@ function DecisionCardPanel({ highlight, onDismiss }) {
             ['Trip distance', fmt(highlight.estimatedDistanceKm, 1, ' km')],
           ].map(([label, value]) => (
             <div key={label} className="flex items-center justify-between">
-              <span className="text-white/45">{label}</span>
-              <span className="text-white/85 font-mono tabular-nums">{value}</span>
+              <span className="text-white/50">{label}</span>
+              <span className="text-white/90 font-mono font-medium tabular-nums">{value}</span>
             </div>
           ))}
         </div>

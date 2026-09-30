@@ -53,12 +53,8 @@ def update_provider(provider_id: int, data: ProviderUpdate, db: SessionDep, curr
 
 @router.delete("/{provider_id}")
 def delete_provider(provider_id: int, db: SessionDep, current_user: CurrentUser):
-    provider = db.query(Provider).filter(Provider.id == provider_id).first()
-    if not provider:
-        raise HTTPException(404, "Provider not found")
-    p_name = provider.name
-    db.delete(provider)
-    db.commit()
+    from app.services.deletion_service import safe_delete_provider
+    p_name = safe_delete_provider(provider_id, db)
     log_system_notification(
         db,
         title="Provider Removed",
@@ -89,11 +85,8 @@ def list_vehicles(provider_id: int, db: SessionDep, current_user: CurrentUser):
 
 @router.delete("/vehicles/{vehicle_id}")
 def delete_vehicle(vehicle_id: int, db: SessionDep, current_user: CurrentUser):
-    vehicle = db.query(Vehicle).filter(Vehicle.id == vehicle_id).first()
-    if not vehicle:
-        raise HTTPException(404, "Vehicle not found")
-    db.delete(vehicle)
-    db.commit()
+    from app.services.deletion_service import safe_delete_vehicle
+    safe_delete_vehicle(vehicle_id, db)
     return {"message": "Vehicle deleted"}
 
 

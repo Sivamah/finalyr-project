@@ -776,7 +776,26 @@ def dispatch_trip(
     route_dict}.  Raises ValueError when no driver/vehicle is available
     or the route cannot be optimized (the caller decides how to handle
     the unassigned requests).
+
+    Lifecycle guard: requests must still be assignable (`Pending` /
+    `Evaluated`).  A request that is already `Assigned`, `Active`,
+    `Completed` or otherwise terminal can never be dispatched again, which
+    prevents duplicate trips and prevents completed requests from returning
+    to dispatch.
     """
+    # ── Lifecycle guard — no re-dispatch of already-handled requests ────────
+    ASSIGNABLE_STATUSES = ("Pending", "Evaluated")
+    already = [
+        f"#{r.id} ({r.status})"
+        for r in requests
+        if (r.status or "").strip() not in ASSIGNABLE_STATUSES
+    ]
+    if already:
+        raise ValueError(
+            "Cannot dispatch request(s) already in a terminal state: "
+            + ", ".join(already)
+        )
+
     selector = DriverSelector()
     candidate = selector.select(db, requests, pool=pool)
     if candidate is None:

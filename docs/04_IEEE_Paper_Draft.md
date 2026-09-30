@@ -10,7 +10,7 @@
 The rise of the on-demand economy has populated urban centers with millions of independent contractors fulfilling micro-tasks. However, the software platforms orchestrating these tasks are heavily fragmented. A driver transporting a passenger across a city often returns empty, completely unaware of a parcel requiring delivery along their return route. This inefficiency represents a massive loss of economic potential and environmental sustainability. 
 
 ## II. LITERATURE REVIEW
-Traditional approaches to the Vehicle Routing Problem (VRP) focus on static, homogeneous payloads. [Insert Citation 1]. Recent advancements in dynamic routing (Dynamic VRP) adapt to real-time requests, but remain confined to single-domain applications like pure ride-sharing (e.g., UberPool) [Insert Citation 2]. Cross-domain batching involving disparate constraints (human passenger comfort vs. food thermal decay) remains largely unexplored in commercial applications due to computational complexity.
+Traditional approaches to the Vehicle Routing Problem (VRP) focus on static, homogeneous payloads [1]. Recent advancements in dynamic routing (Dynamic VRP) adapt to real-time requests, but remain confined to single-domain applications like pure ride-sharing (e.g., UberPool) [2]. Cross-domain batching involving disparate constraints (human passenger comfort vs. food thermal decay) remains largely unexplored in commercial applications due to computational complexity.
 
 ## III. PROBLEM STATEMENT
 To develop a real-time, unified platform capable of processing heterogeneous transport requests (Passenger, Food, Parcel) and optimally assigning them to a single fleet of drivers without violating the distinct temporal and spatial constraints of any individual payload.
@@ -51,12 +51,47 @@ Table 3 (stage share): batch formation dominates the adaptive pipeline at high v
 
 Table 4 (closed-loop learning): the dispatch rate stays at 100% in both arms at every workload — that is, every generated request was successfully assigned a driver and vehicle. It is a dispatch-success rate, not a measure of trips that ran to completion. Learning refits parameters on days 1–4 (corridor multipliers 1.05–1.25) and reduces on-arm delay error at W=50 (1.41→0.34 min) and W=100 (0.96→0.81 min); at W=250/500 on-arm delay error is flat (≈1.0–1.1 min, no better than the OFF arm).
 
-## VI. DISCUSSION
+## VI. SYSTEM READINESS AND ENGINEERING VALIDATION
+
+Beyond the research simulation above, the implemented platform was exercised
+through a dedicated hardening and freeze pass (`FINAL_HARDENING_REPORT.md`,
+`FINAL_FREEZE_CHECK.md`, in-repo). The pass deliberately left all A-DMFE
+research logic — compatibility weights, adaptive thresholds, OR-Tools model
+construction, review-generation rules — **unchanged**, so the numbers in
+Section V are valid for the shipping system as well.
+
+- **Readiness scorecard.** A 17-dimension, evidence-based engineering
+  scorecard rates the system at **92.6 / 100**, up from an **89 / 100**
+  baseline (+3.6 points, **+4.05%** relative), after fixing schema
+  hygiene (SQLAlchemy cyclic-FK warning), migrating all Pydantic v2
+  deprecations, and closing API validation gaps.
+- **Test suite.** **138 automated tests** (unit + HTTP layer) pass with exit
+  code 0; the backend imports cleanly, the frontend lints (one pre-existing
+  structural warning) and builds, and five independent verification harnesses
+  pass against fresh isolated databases.
+- **XAI latency bound.** The stored-decision explainer previously scaled as
+  requests × stored batches; its decision-filter view **did not complete
+  within 300 s** on the 12,688-request development database. Bounded scan
+  limits reduced the decision-filter query to **≈1.2 s** (200 rows returned),
+  with no-filter queries at 0.4–1.2 s.
+- **Dispatch lifecycle.** Double-assignment of the same requests returns HTTP
+  **409** and never creates a duplicate trip; requests in terminal states are
+  never re-dispatched; batched-trip confidence derived from scores is labelled
+  **(estimated)** so recorded engine confidence is never overstated.
+- **End-to-end soak.** Real-HTTP runs at N = 10 / 50 / 100 hold all **17/17**
+  invariants (accounting closes, unassigned = 0 with ample fleet, no duplicate
+  requests across trips or realized batches, exact batch↔trip request-set
+  equality, all trips Active, and a second run dispatches nothing). The XAI
+  replay matches the real dispatched trip, and replayed decisions are
+  **immune to later adaptive-threshold changes** (they reproduce the threshold
+  in force at decision time).
+
+## VII. DISCUSSION
 The integration of Explainable AI (XAI) was critical in validating the DMFE's outputs. By translating mathematical distance matrices into natural language, human operators could easily audit the batching logic: in audited runs, the stored adaptive rationale (compatibility score, decision confidence, signed factor contributions, batch-quality score vs its threshold) matches an independent recomputation from recorded state (e.g. CS 90.90 recomputed to 90.70, decision confidence 68.0% as stored). Attribution is therefore reproducible, not decorative.
 
 Three honest findings temper the headline gains. First, adaptivity buys utilization and fuel-savings mostly at low-to-moderate volume; at W=500 the gap narrows because the static arm already saturates batching (83.3% for both). Second, the latency cost of adaptivity is real: batch formation, not route optimisation, is the bottleneck (up to 58% of wall time at W=500), and learning adds little when corridors saturate at high volume. Third, the system's reliance on real-time traffic data exposes a vulnerability; sudden traffic anomalies could cause a batched trip to violate the stringent SLA of a passenger ride.
 
-## VII. LIMITATIONS
+## VIII. LIMITATIONS
 - Deterministic single-pass simulation: repeated seeds vary RNG only; reported means/std are descriptive, not significance tests.
 - Learning is inert below the 60-driver tracking threshold (W=50) and flat at W=500; "adaptive wins" claims therefore hold for 100–250-request workloads.
 - The live-tracking map renders seeded simulator positions polled over REST; it is not GPS and not a push channel (no WebSocket).
@@ -65,5 +100,25 @@ Three honest findings temper the headline gains. First, adaptivity buys utilizat
 - Reported rates are dispatch rates: a request counts as served once it reaches `Assigned`. Trip execution is simulated, so completion is not an independently observed outcome.
 - Batch formation is O(pairs) with no caching; large fleets or real-time feeds require caching/parallelisation (see `12_Performance_Optimization_Report.md`).
 
-## VIII. CONCLUSION & FUTURE SCOPE
+## IX. CONCLUSION & FUTURE SCOPE
 The Unified Mobility and Delivery System successfully demonstrates that cross-domain batching is computationally feasible — with utilization and sustainability gains between 3% and 17% across workloads, an auditable XAI rationale, and a 100% dispatch rate in closed-loop learning. Future work will focus on caching and parallelising batch formation, integrating Machine Learning for predictive driver pre-positioning, and implementing dynamic pricing models to incentivize passenger-parcel batching.
+
+## REFERENCES
+
+[1] P. Toth and D. Vigo, Eds., *The Vehicle Routing Problem*. Philadelphia, PA, USA: SIAM, 2002.
+
+[2] M. Furuhata, M. Dessouky, F. Ordóñez, M.-E. Brunet, X. Wang, and S. Koenig, "Ridesharing: The state-of-the-art and future directions," *Transportation Research Part B: Methodological*, vol. 57, pp. 28–46, 2013.
+
+[3] Google OR-Tools. [Online]. Available: https://developers.google.com/optimization
+
+[4] FastAPI (ASGI web framework). [Online]. Available: https://fastapi.tiangolo.com
+
+[5] React (frontend UI library). [Online]. Available: https://react.dev
+
+[6] SQLAlchemy (ORM). [Online]. Available: https://www.sqlalchemy.org
+
+[7] Pydantic (data validation). [Online]. Available: https://docs.pydantic.dev
+
+[8] A-DMFE full IEEE result tables, `backend/evaluation/results/ieee_tables.md` and `ieee_tables.tex` (in-repo).
+
+[9] A-DMFE `docs/reports/FINAL_HARDENING_REPORT.md` and `docs/reports/FINAL_FREEZE_CHECK.md` (in-repo).

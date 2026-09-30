@@ -239,18 +239,15 @@ export default function LiveSimulationMap() {
           />
         </div>
 
-        {/* Active trips — manual "Complete Trip" action. Nothing on the map
-            itself is clickable to select a Trip (only queue/vehicle
-            markers are), so this always-visible list is the minimal way to
-            reach the existing completion endpoint. */}
+        {/* Active trips */}
         {activeTrips.length > 0 && (
-          <div className="absolute left-4 bottom-6 z-30 hidden md:block pointer-events-none">
+          <div className="absolute inset-x-4 bottom-6 md:inset-x-auto md:left-4 z-20 pointer-events-none flex justify-center md:justify-start">
             <ActiveTripsPanel trips={activeTrips} onCompleted={refreshNetwork} />
           </div>
         )}
 
         {/* Compact left filter panel */}
-        <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 hidden sm:block pointer-events-none">
+        <div className="absolute left-4 top-20 z-30 pointer-events-none">
           <MapFilterPanel
             filterType={filterType}
             onFilterTypeChange={setFilterType}
@@ -264,10 +261,9 @@ export default function LiveSimulationMap() {
           />
         </div>
 
-        {/* Right inspector — only mounted when something is actually selected,
-            so the map is never permanently squeezed by an empty panel. */}
+        {/* Right inspector (or bottom sheet on mobile) */}
         {hasSelection && panelOpen && (
-          <div className="absolute right-4 top-20 z-30 hidden md:block pointer-events-none">
+          <div className="absolute inset-x-4 bottom-6 md:inset-x-auto md:right-4 md:top-20 md:bottom-auto z-40 pointer-events-none flex justify-center md:justify-end">
             <TripDetailsPanel
               selectedRequest={selectedRequest}
               selectedVehicle={selectedVehicle}
@@ -283,7 +279,7 @@ export default function LiveSimulationMap() {
         {hasSelection && !panelOpen && (
           <button
             onClick={() => setPanelOpen(true)}
-            className="absolute right-4 top-20 z-30 pointer-events-auto bg-[#0A0F1A]/80 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 text-[11px] text-white/70 hover:text-white hover:border-[#00F0FF]/40 transition-colors"
+            className="absolute right-4 bottom-6 md:top-20 md:bottom-auto z-40 pointer-events-auto bg-[#0A0F1A]/80 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 text-[11px] text-white/70 hover:text-white hover:border-[#00F0FF]/40 transition-colors shadow-lg"
           >
             Show details
           </button>

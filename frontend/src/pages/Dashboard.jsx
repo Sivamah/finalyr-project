@@ -41,22 +41,26 @@ function KpiCard({ icon: Icon, label, value, unit, tone = 'cyan', sub }) {
   const t = TONES[tone] || TONES.cyan;
   const isNumeric = typeof value === 'number' && Number.isFinite(value);
   return (
-    <div className="glass-card rounded-[20px] p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="section-label truncate">{label}</p>
-          <div className="flex items-baseline gap-1.5 mt-2">
-            <span className="text-[24px] font-display font-semibold text-white tabular-nums tracking-tight">
+    <div className="glass-card rounded-[20px] p-4 h-full flex flex-col justify-between transition-colors hover:bg-white/[0.03]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold tracking-wider text-brand-text-muted uppercase mb-0.5 truncate">{label}</p>
+          <div className="flex items-baseline gap-1.5 mt-1">
+            <span className="text-[26px] font-display font-bold text-white tabular-nums tracking-tight">
               {isNumeric ? <AnimatedNumber value={value} format={(v) => Math.round(v).toLocaleString()} /> : (value ?? '—')}
             </span>
-            {unit && <span className="text-[12px] text-brand-text-muted">{unit}</span>}
+            {unit && <span className="text-[13px] font-medium text-brand-text-muted">{unit}</span>}
           </div>
-          {sub && <p className="text-[10.5px] text-brand-text-muted mt-1 truncate">{sub}</p>}
         </div>
-        <div className={`h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 ${t.bg} ${t.border}`}>
-          <Icon className={`h-4 w-4 ${t.text}`} />
+        <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${t.bg} border ${t.border}`}>
+          <Icon className={`h-[18px] w-[18px] ${t.text}`} />
         </div>
       </div>
+      {sub && (
+        <div className="mt-2.5 pt-2.5 border-t border-white/[0.06]">
+          <p className="text-[11px] font-medium text-brand-text-secondary truncate">{sub}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -65,15 +69,15 @@ function KpiCard({ icon: Icon, label, value, unit, tone = 'cyan', sub }) {
 
 function SectionCard({ icon: Icon, title, action, children, className = '' }) {
   return (
-    <div className={`glass-card rounded-[22px] p-5 flex flex-col ${className}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[13px] font-bold text-white flex items-center gap-2">
+    <div className={`glass-card rounded-[22px] p-4 flex flex-col h-full ${className}`}>
+      <div className="flex items-center justify-between mb-3.5 flex-none">
+        <h3 className="text-[13.5px] font-bold text-white flex items-center gap-2 tracking-wide">
           <Icon className="h-4 w-4 text-brand-primary" />
           {title}
         </h3>
         {action}
       </div>
-      <div className="flex-1 min-h-0">{children}</div>
+      <div className="flex-1 min-h-0 flex flex-col justify-center">{children}</div>
     </div>
   );
 }
@@ -82,15 +86,20 @@ function ProgressRow({ label, count, total, color, Icon }) {
   const pct = total > 0 ? (count / total) * 100 : 0;
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
-        <span className="flex items-center gap-1.5 text-[12px] text-brand-text-secondary">
-          {Icon && <Icon className="h-3.5 w-3.5" style={{ color }} />}
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="flex items-center gap-2 text-[12.5px] font-medium text-brand-text-secondary">
+          {Icon && <Icon className="h-[14px] w-[14px]" style={{ color }} />}
           {label}
         </span>
-        <span className="text-[12px] font-mono text-white tabular-nums">{count}</span>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[13px] font-bold text-white tabular-nums">{count}</span>
+          {total > 0 && (
+            <span className="text-[11px] font-medium text-brand-text-muted tabular-nums w-8 text-right">{pct.toFixed(0)}%</span>
+          )}
+        </div>
       </div>
-      <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color, opacity: 0.85 }} />
+      <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: color, opacity: 0.9 }} />
       </div>
     </div>
   );
@@ -222,28 +231,30 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6 pb-10 max-w-[1500px] mx-auto">
-      <PageHeader
-        eyebrow="Overview"
-        live
-        title="Operational Overview"
-        description="Network-wide totals — demand, fleet, trips and AI decisions. For the live map and per-trip inspection, open Live Operations."
-        actions={
-          <div className="flex items-center gap-2.5">
-            <StatusBadge
-              tone={feedFresh ? 'success' : 'danger'}
-              label={feedFresh ? 'Live feed connected' : 'Feed unavailable'}
-              pulse={feedFresh}
-            />
-            <button onClick={() => navigate('/live-map')} className="btn-primary">
-              Live Operations <ArrowUpRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        }
-      />
+    <div className="space-y-4 pb-8 max-w-[1500px] mx-auto">
+      <div className="-mb-4">
+        <PageHeader
+          eyebrow="Overview"
+          live
+          title="Operational Overview"
+          description="Network-wide totals — demand, fleet, trips and AI decisions. For the live map and per-trip inspection, open Live Operations."
+          actions={
+            <div className="flex flex-wrap items-center gap-3">
+              <StatusBadge
+                tone={feedFresh ? 'success' : 'danger'}
+                label={feedFresh ? 'Live feed connected' : 'Feed unavailable'}
+                pulse={feedFresh}
+              />
+              <button onClick={() => navigate('/live-map')} className="btn-primary">
+                Live Operations <ArrowUpRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          }
+        />
+      </div>
 
       {/* ── TOP KPIs ─────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard icon={Inbox} label="Active Requests" tone="cyan"
                  value={net.activeRequests} sub={`${fmtInt(net.pending)} queued · ${fmtInt(net.inFlightRequests)} in flight`} />
         <KpiCard icon={RouteIcon} label="Shared Trips" tone="blue"
@@ -266,7 +277,7 @@ export default function Dashboard() {
       </div>
 
       {/* ── Service demand / Fleet status / Trip status ─────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <SectionCard icon={Activity} title="Service Demand">
           {net.pending === 0 ? (
             <p className="text-[12px] text-brand-text-muted italic">No pending requests in the network.</p>
@@ -307,8 +318,9 @@ export default function Dashboard() {
                   <ProgressRow key={s} label={s} color={tripStatusColor[s] || '#94A3B8'}
                                count={tripBreakdown.byStatus[s]} total={tripBreakdown.total} />
                 ))}
-              <div className="pt-2 mt-1 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-brand-text-muted">
-                <span>{tripBreakdown.shared} shared · {tripBreakdown.individual} individual</span>
+              <div className="pt-2 mt-1 border-t border-white/[0.06] flex items-center justify-between text-[11.5px] text-brand-text-muted font-medium">
+                <span>{tripBreakdown.shared} shared</span>
+                <span>{tripBreakdown.individual} individual</span>
               </div>
             </div>
           )}
@@ -316,11 +328,11 @@ export default function Dashboard() {
       </div>
 
       {/* ── Recent activity / Top vehicles ──────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard
           icon={Activity}
           title="Recent Activity"
-          action={<button onClick={() => navigate('/notifications')} className="btn-ghost !text-brand-primary !px-2 !py-1">View all</button>}
+          action={<button onClick={() => navigate('/notifications')} className="btn-ghost !text-brand-primary !px-3 !py-1.5 !text-[11.5px]">View all</button>}
         >
           <ActivityTimeline timeline={timeline} />
         </SectionCard>
@@ -329,19 +341,19 @@ export default function Dashboard() {
           {!tripBreakdown || tripBreakdown.topVehicles.length === 0 ? (
             <p className="text-[12px] text-brand-text-muted italic">No completed trips to rank yet.</p>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               {tripBreakdown.topVehicles.map((v, i) => (
-                <div key={v.vehicleId} className="flex items-center gap-3 surface-well rounded-xl px-3 py-2.5">
-                  <span className="h-6 w-6 rounded-lg bg-brand-primary/15 border border-brand-primary/30 text-brand-primary text-[11px] font-bold flex items-center justify-center shrink-0">
+                <div key={v.vehicleId} className="flex items-center gap-3.5 surface-well rounded-[14px] px-3.5 py-3">
+                  <div className="h-7 w-7 rounded-[10px] bg-brand-primary/15 border border-brand-primary/30 text-brand-primary text-[11.5px] font-bold flex items-center justify-center shrink-0">
                     {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[12.5px] font-semibold text-white truncate">{v.name}</p>
-                    <p className="text-[10.5px] text-brand-text-muted">{v.trips} trip{v.trips === 1 ? '' : 's'}</p>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-[11.5px] font-mono text-brand-success tabular-nums">{v.distanceSavedKm.toFixed(1)} km</p>
-                    <p className="text-[10px] text-brand-text-muted">saved</p>
+                  <div className="min-w-0 flex-1 flex flex-col justify-center">
+                    <p className="text-[13.5px] font-bold text-white truncate leading-tight">{v.name}</p>
+                    <p className="text-[11px] font-medium text-brand-text-secondary mt-0.5">{v.trips} trip{v.trips === 1 ? '' : 's'}</p>
+                  </div>
+                  <div className="text-right shrink-0 flex flex-col justify-center">
+                    <p className="text-[13px] font-mono font-bold text-brand-success tabular-nums leading-tight">{v.distanceSavedKm.toFixed(1)} km</p>
+                    <p className="text-[10px] font-medium text-brand-text-muted mt-0.5 uppercase tracking-wider">saved</p>
                   </div>
                 </div>
               ))}
@@ -351,67 +363,67 @@ export default function Dashboard() {
       </div>
 
       {/* ── AI Insights / System Health ──────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard
           icon={BrainCircuit}
           title="AI Insights"
-          action={<button onClick={() => navigate('/xai')} className="btn-ghost !text-brand-primary !px-2 !py-1">Open <ArrowUpRight className="h-3 w-3" /></button>}
+          action={<button onClick={() => navigate('/xai')} className="btn-ghost !text-brand-primary !px-3 !py-1.5 !text-[11.5px] flex items-center gap-1.5">Open <ArrowUpRight className="h-3 w-3" /></button>}
         >
           {!xaiOverview || xaiOverview.total_explanations === 0 ? (
             <p className="text-[12px] text-brand-text-muted italic">No decisions evaluated yet.</p>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
               <div className="grid grid-cols-3 gap-3">
-                <div className="surface-well rounded-xl px-3 py-2.5">
-                  <p className="text-[9.5px] uppercase tracking-wider text-brand-text-muted font-bold">Decisions</p>
-                  <p className="text-[16px] font-semibold text-white tabular-nums mt-0.5">{fmtInt(xaiOverview.total_explanations)}</p>
+                <div className="surface-well rounded-[14px] p-3 text-center">
+                  <p className="text-[9px] uppercase tracking-wider text-brand-text-muted font-bold">Decisions</p>
+                  <p className="text-[17px] font-bold text-white tabular-nums mt-1">{fmtInt(xaiOverview.total_explanations)}</p>
                 </div>
-                <div className="surface-well rounded-xl px-3 py-2.5">
-                  <p className="text-[9.5px] uppercase tracking-wider text-brand-text-muted font-bold">Avg Compat</p>
-                  <p className="text-[16px] font-semibold text-[#22D3EE] tabular-nums mt-0.5">{fmt1(xaiOverview.avg_compatibility_score)}%</p>
+                <div className="surface-well rounded-[14px] p-3 text-center">
+                  <p className="text-[9px] uppercase tracking-wider text-brand-text-muted font-bold">Avg Compat</p>
+                  <p className="text-[17px] font-bold text-[#22D3EE] tabular-nums mt-1">{fmt1(xaiOverview.avg_compatibility_score)}%</p>
                 </div>
-                <div className="surface-well rounded-xl px-3 py-2.5">
-                  <p className="text-[9.5px] uppercase tracking-wider text-brand-text-muted font-bold">Avg Confidence</p>
-                  <p className="text-[16px] font-semibold text-brand-warning tabular-nums mt-0.5">{fmt1(xaiOverview.avg_confidence_score)}%</p>
+                <div className="surface-well rounded-[14px] p-3 text-center">
+                  <p className="text-[9px] uppercase tracking-wider text-brand-text-muted font-bold">Avg Confidence</p>
+                  <p className="text-[17px] font-bold text-brand-warning tabular-nums mt-1">{fmt1(xaiOverview.avg_confidence_score)}%</p>
                 </div>
               </div>
-              <div className="flex items-center justify-between text-[12px] pt-1">
-                <span className="text-brand-text-muted">Most common outcome</span>
-                <span className="text-white font-semibold">{xaiOverview.most_common_decision}</span>
+              <div className="flex items-center justify-between text-[13px] pt-1">
+                <span className="text-brand-text-secondary font-medium">Most common outcome</span>
+                <span className="text-white font-bold">{xaiOverview.most_common_decision}</span>
               </div>
             </div>
           )}
         </SectionCard>
 
         <SectionCard icon={HeartPulse} title="System Health">
-          <div className="space-y-2.5">
-            <div className="flex items-center justify-between surface-well rounded-xl px-3.5 py-2.5">
-              <span className="flex items-center gap-2 text-[12px] text-brand-text-secondary">
-                <Server className="h-3.5 w-3.5" /> API
+          <div className="flex flex-col gap-0 border border-white/10 rounded-2xl overflow-hidden bg-white/[0.02]">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.06]">
+              <span className="flex items-center gap-2.5 text-[12.5px] font-medium text-white">
+                <Server className="h-4 w-4 text-brand-text-muted" /> API Connection
               </span>
               <StatusBadge tone={healthOk === null ? 'neutral' : healthOk ? 'success' : 'danger'}
                             label={healthOk === null ? 'Checking…' : healthOk ? 'Operational' : 'Unreachable'} pulse={Boolean(healthOk)} />
             </div>
-            <div className="flex items-center justify-between surface-well rounded-xl px-3.5 py-2.5">
-              <span className="flex items-center gap-2 text-[12px] text-brand-text-secondary">
-                <Radio className="h-3.5 w-3.5" /> Live feed
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[0.06]">
+              <span className="flex items-center gap-2.5 text-[12.5px] font-medium text-white">
+                <Radio className="h-4 w-4 text-brand-text-muted" /> Live Feed
               </span>
               <StatusBadge tone={feedFresh ? 'success' : 'danger'}
                             label={feedFresh ? `Updated ${lastUpdated?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : 'Stale'}
                             pulse={feedFresh} />
             </div>
-            <div className="flex items-center justify-between surface-well rounded-xl px-3.5 py-2.5">
-              <span className="flex items-center gap-2 text-[12px] text-brand-text-secondary">
-                <Activity className="h-3.5 w-3.5" /> Simulation engine
+            <div className="flex items-center justify-between px-4 py-3.5">
+              <span className="flex items-center gap-2.5 text-[12.5px] font-medium text-white">
+                <Activity className="h-4 w-4 text-brand-text-muted" /> Simulation Engine
               </span>
               <StatusBadge tone={engineTone} label={engineLabel} pulse={engineTone === 'success'} />
             </div>
-            {netError && (
-              <div className="flex items-center gap-2 text-[11px] text-brand-warning px-1 pt-1">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {netError}
-              </div>
-            )}
           </div>
+          {netError && (
+            <div className="flex items-center gap-2 text-[11.5px] text-brand-warning bg-brand-warning/10 border border-brand-warning/20 rounded-xl px-3.5 py-2.5 mt-3">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" /> {netError}
+            </div>
+          )}
         </SectionCard>
       </div>
     </div>

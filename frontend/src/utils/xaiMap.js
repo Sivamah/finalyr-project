@@ -69,7 +69,7 @@ export function normalizeXaiHighlight(exp) {
     tripId: trip?.trip_id ?? null,
     tripCode: trip?.trip_code || null,
     tripStatus: trip?.status || null,
-    isShared: trip?.is_shared || false,
+    isShared: trip?.is_shared || String(exp.decision || '').toLowerCase().includes('compatible for batching'),
     decision: exp.decision,
     status: exp.status,
     reason: exp.reason,
@@ -80,6 +80,7 @@ export function normalizeXaiHighlight(exp) {
     // are kept apart here; the UI must not label one as the other.
     score: exp.factors?.overall_compatibility_score ?? null,
     confidence: exp.confidence_score ?? null,
+    confidenceFallback: exp.confidence_fallback === true,
     estimatedDistanceKm: exp.estimated_distance_km ?? null,
     // Real trip-economics fields (never fabricated client-side — copied
     // straight from the backend's own dispatch-time computation). Present

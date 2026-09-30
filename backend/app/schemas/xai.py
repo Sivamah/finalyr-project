@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class XAIFactors(BaseModel):
@@ -83,6 +83,11 @@ class XAIExplanationItem(BaseModel):
     decision_summary: str = ""
     reason: str = ""
     confidence_score: float = 90.0
+    # True when the engine did not record a real confidence at decision time
+    # (historical rows / static-mode baseline) and the score-derived estimate
+    # is being displayed instead.  Additive — the UI should label it
+    # "(estimated)" rather than presenting it as a recorded value.
+    confidence_fallback: bool = False
     pickup_address: str = ""
     drop_address: str = ""
     pickup_lat: float = 0.0
@@ -116,8 +121,7 @@ class XAIExplanationItem(BaseModel):
     # solo-vs-combined profit comparison without a second pricing model.
     solo_profit_inr: float = 0.0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class KeyValueCount(BaseModel):

@@ -18,14 +18,12 @@ This platform unifies all requests. The DMFE analyzes pending ride, food, and pa
 
 ```mermaid
 graph TD
-    Client[React Frontend] --> API[FastAPI Backend]
+    Client[React Frontend] -->|HTTP polling 2.5-15s| API[FastAPI Backend]
     API --> DB[(PostgreSQL / SQLite)]
     API --> DMFE[DMFE Optimization Engine]
     DMFE --> ORTools[Google OR-Tools VRP]
     API --> Maps[Google Maps API]
-    API --> WS[WebSocket Server]
-    WS --> DriverApp[Driver Live Tracking]
-    WS --> CustApp[Customer Notifications]
+    API --> Live[Live dashboards via polling]
 ```
 
 ## 🛠️ Technology Stack
@@ -43,7 +41,7 @@ graph TD
 - SQLAlchemy (ORM)
 - PostgreSQL (Production) / SQLite (Dev)
 - Google OR-Tools (Vehicle Routing / Optimization)
-- WebSockets (Live Tracking)
+- Live dashboards refresh via HTTP polling (2.5–15 s cadence per view)
 - Uvicorn (ASGI Server)
 
 **Testing & Security:**
@@ -61,7 +59,7 @@ rapidoproject/
 │   │   ├── api/           # API routes (bookings, auth, admin, etc.)
 │   │   ├── core/          # Security, Config, Middleware
 │   │   ├── db/            # Database schema & models
-│   │   ├── engine/        # DMFE & OR-Tools Optimization Engine
+│   │   ├── dmfe/          # DMFE & OR-Tools Optimization Engine
 │   │   ├── schemas/       # Pydantic validation models
 │   │   ├── services/      # Business logic (XAI, Scheduling, Routing)
 │   │   └── main.py        # FastAPI application entry point
@@ -72,7 +70,7 @@ rapidoproject/
 └── frontend/
     ├── src/
     │   ├── components/    # Reusable UI components
-    │   ├── context/       # Auth & WebSocket contexts
+    │   ├── context/       # Auth context & polling-based live refresh
     │   ├── pages/         # Dashboard views (Admin, Driver, Customer)
     │   └── services/      # API communication layer
     ├── vite.config.js     # Vite config (test block reserved for Vitest)
@@ -185,7 +183,10 @@ We maintain high confidence in the platform through a layered testing strategy.
 
 ## 📊 Final Project Audit & Health Score
 
-**Health Score:** 98/100 (Production Ready)
+The project is continuously audited; the current hardening review is tracked
+in `docs/reports/FINAL_HARDENING_REPORT.md`. Historical stubs (the old
+"98/100 (Production Ready)" claim) were removed because they predate the
+automated 17-dimension readiness scoring added by the final hardening pass.
 
 **Improvements Made in Phase 9:**
 1. Unified scattered test files into a single Pytest suite (`backend/tests/`).
@@ -198,7 +199,7 @@ We maintain high confidence in the platform through a layered testing strategy.
 ---
 
 ## 🔮 Future Scope
-- Add Redis for WebSockets scaling and DMFE caching.
+- Add Redis-backed WebSocket push to replace the current HTTP polling.
 - Introduce dynamic pricing (surge pricing) based on real-time driver density.
 - Implement Apple/Google Pay integrations.
 

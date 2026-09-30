@@ -36,10 +36,10 @@ from sqlalchemy.orm import Session
 
 
 from app.core.json_utils import json_loads
-from app.db.models import SimulationRequest
+from app.db.models import Driver, SimulationRequest, Vehicle
 from app.dmfe.batch_generator import BatchGenerator, CandidateGroup
 from app.dmfe.compatibility import resolve_mode, _get_threshold
-from app.dmfe.decision_engine import _make_batch_row
+from app.dmfe.decision_engine import _find_existing_live_batch, _make_batch_row
 from app.dmfe.driver_selection import (
     complete_stale_trips,
     dispatch_trip,
@@ -83,7 +83,7 @@ def _high_priority_violation(
 
 
 def _update_pool_after_dispatch(
-    pool: "DriverPool", driver_id: int, vehicle_id: int
+    db: Session, pool: "DriverPool", driver_id: int, vehicle_id: int
 ) -> None:
     """
     Update the driver pool in-place after a successful dispatch.
@@ -94,6 +94,9 @@ def _update_pool_after_dispatch(
       - Remove the dispatched vehicle from the available list.
       - Increment active_counts so the selector's double-booking guard stays
         accurate for any subsequent selection in the same run.
+      - Re-load the surviving pool rows into the session identity map in one
+        SELECT each, so the next select() does not issue one small SELECT per
+        attribute (every ORM attribute was expired by the preceding commit).
 
     The full build_pool is still called once at the start of each run to get
     an accurate snapshot; this helper keeps it current between dispatches.
@@ -101,6 +104,12 @@ def _update_pool_after_dispatch(
     pool.drivers = [d for d in pool.drivers if d.id != driver_id]
     pool.vehicles = [v for v in pool.vehicles if v.id != vehicle_id]
     pool.active_counts[driver_id] = pool.active_counts.get(driver_id, 0) + 1
+    driver_ids = [d.id for d in pool.drivers]
+    if driver_ids:
+        db.query(Driver).filter(Driver.id.in_(driver_ids)).all()
+    vehicle_ids = [v.id for v in pool.vehicles]
+    if vehicle_ids:
+        db.query(Vehicle).filter(Vehicle.id.in_(vehicle_ids)).all()
 
 
 def _persist_batch(
@@ -114,8 +123,33 @@ def _persist_batch(
     factor_scores: Optional[Dict] = None,
     delay_min: float = 0.0,
     factor_details: Optional[Dict] = None,
+    decision_confidence: Optional[float] = None,
 ) -> DMFEBatch:
-    """Persist a DMFEBatch row (shared encoding with decision_engine)."""
+    """Persist a DMFEBatch row (shared encoding with decision_engine).
+
+    Idempotency guard: /run never advances SimulationRequest.status for
+    requests it cannot dispatch, so re-running the pipeline on the same
+    pending queue used to insert a duplicate DMFEBatch row (identical
+    batch_code, same request_ids) every time -- inflating /statistics and
+    /history and leaving phantom status='Pending' rows behind an analyze→run
+    cycle.  When a still-live batch for this exact request set already
+    exists, it is REUSED (updated in place) instead of duplicated, exactly
+    like decision_engine.run_analysis does for /analyze.
+    """
+    existing = _find_existing_live_batch(db, request_ids)
+    if existing is not None:
+        existing.batch_code = batch_code
+        existing.compatibility_score = score
+        existing.decision = decision
+        existing.reason_json = json.dumps(reasons or [])
+        existing.factor_scores_json = json.dumps(factor_scores or {})
+        existing.factor_details_json = json.dumps(factor_details or {})
+        existing.estimated_delay_min = delay_min
+        existing.decision_confidence = decision_confidence
+        existing.status = status
+        db.flush()
+        return existing
+
     batch = _make_batch_row(
         batch_code=batch_code,
         request_ids=request_ids,
@@ -126,6 +160,7 @@ def _persist_batch(
         factor_details=factor_details,
         status=status,
         estimated_delay_min=delay_min,
+        decision_confidence=decision_confidence,
     )
     db.add(batch)
     db.flush()
@@ -272,6 +307,7 @@ class PipelineRunner:
                 factor_scores=cg.result.factor_scores,
                 delay_min=cg.result.estimated_delay_min,
                 factor_details=cg.result.factor_details,
+                decision_confidence=cg.result.decision_confidence,
             )
             db.flush()  # ensure batch.id exists before dispatch
             try:
@@ -316,6 +352,7 @@ class PipelineRunner:
             db.commit()
             # Fix 3: targeted in-memory update instead of a full 9-query pool rebuild.
             _update_pool_after_dispatch(
+                db,
                 driver_pool,
                 outcome["driver"].id,
                 outcome["vehicle"].id,
@@ -379,6 +416,7 @@ class PipelineRunner:
             db.commit()
             # Fix 3: targeted in-memory update instead of a full 9-query pool rebuild.
             _update_pool_after_dispatch(
+                db,
                 driver_pool,
                 outcome["driver"].id,
                 outcome["vehicle"].id,

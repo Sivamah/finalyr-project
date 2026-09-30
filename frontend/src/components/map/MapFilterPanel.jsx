@@ -21,7 +21,7 @@ export default function MapFilterPanel({
   hasFilters,
   onResetFilters,
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(typeof window !== 'undefined' ? window.innerWidth < 768 : false);
 
   return (
     <div className="pointer-events-auto glass-panel-strong rounded-2xl p-3 backdrop-blur-xl border border-white/[0.1] shadow-[0_10px_40px_rgba(5,8,22,0.6)] w-[264px]">

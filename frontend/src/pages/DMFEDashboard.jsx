@@ -212,7 +212,7 @@ export default function DMFEDashboard() {
         title="Feasibility Engine"
         description="The Adaptive Dynamic Multi-Service Feasibility Engine scores request pairings across 8 compatibility factors before routing."
         actions={
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
               onClick={() => setDemoMode((v) => !v)}
@@ -332,7 +332,7 @@ export default function DMFEDashboard() {
           className="flex flex-col gap-5 min-h-full"
         >
           {/* Tab pills */}
-          <div className="glass-panel rounded-[18px] p-1.5 flex items-center gap-1.5 w-fit">
+          <div className="glass-panel rounded-[18px] p-1.5 flex flex-wrap items-center gap-1.5 w-fit max-w-full">
             {TABS.map((tab) => (
               <button
                 key={tab.id}

@@ -1,5 +1,5 @@
 from typing import Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class ConfigItem(BaseModel):
@@ -9,8 +9,7 @@ class ConfigItem(BaseModel):
     data_type: str = "string"
     updated_at: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ConfigCategoryGroup(BaseModel):
@@ -34,8 +33,7 @@ class AuditLogItem(BaseModel):
     new_value: str
     created_at: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ExportImportPayload(BaseModel):

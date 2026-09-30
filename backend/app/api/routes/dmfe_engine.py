@@ -27,7 +27,13 @@ from sqlalchemy.orm import joinedload
 
 from app.api.deps import SessionDep, CurrentUser
 from app.core.json_utils import json_loads
-from app.db.models import DriverAssignment, SimulationRequest, Trip
+from app.db.models import (
+    Driver,
+    DriverAssignment,
+    SimulationRequest,
+    Trip,
+    Vehicle,
+)
 from app.dmfe.batch_generator import BatchGenerator
 from app.dmfe.compatibility import CompatibilityCalculator, _get_threshold
 from app.dmfe.driver_selection import complete_trip, complete_stale_trips, dispatch_trip
@@ -111,8 +117,25 @@ def compatibility_score(
     profile, adaptive weights, Batch Quality Score, decision confidence
     and factor attribution.  All original keys are unchanged.
     """
+    # Duplicate ids would silently collapse to one row (SQL IN) and then
+    # raise "Need at least 2 requests" as an uncaught 500.  Reject them
+    # explicitly as invalid input.
+    dupes = sorted({x for x in body.request_ids if body.request_ids.count(x) > 1})
+    if dupes:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Duplicate request_ids in input: {dupes}",
+        )
     requests = _load_requests(db, body.request_ids)
-    result = calculator.compute(requests, db)
+    if len(requests) < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="At least 2 distinct requests are required for a compatibility score",
+        )
+    try:
+        result = calculator.compute(requests, db)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     threshold = _get_threshold(db)
     return compatibility_score_response(result, threshold)
 
@@ -211,6 +234,31 @@ def optimize_route(
     (batch_id) or an explicit request group.  Returns the
     AIOrchestrator-compatible route dict.
     """
+    # Validate referenced resources BEFORE any engine work so bad input gets
+    # a clean 4xx instead of a silent fallback or an unhandled 500.
+    if body.driver_id is not None:
+        driver_exists = db.query(Driver).filter(Driver.id == body.driver_id).first()
+        if driver_exists is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Driver #{body.driver_id} not found",
+            )
+    if body.vehicle_id is not None:
+        vehicle_exists = db.query(Vehicle).filter(Vehicle.id == body.vehicle_id).first()
+        if vehicle_exists is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Vehicle #{body.vehicle_id} not found",
+            )
+
+    if body.request_ids:
+        dupes = sorted({x for x in body.request_ids if body.request_ids.count(x) > 1})
+        if dupes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate request_ids in input: {dupes}",
+            )
+
     try:
         if body.batch_id is not None:
             batch = db.query(DMFEBatch).filter(DMFEBatch.id == body.batch_id).first()
@@ -258,6 +306,12 @@ def assign_driver(
         requests = _load_requests(db, request_ids)
         trip_key = batch.batch_code
     elif body.request_ids:
+        dupes = sorted({x for x in body.request_ids if body.request_ids.count(x) > 1})
+        if dupes:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate request_ids in input: {dupes}",
+            )
         requests = _load_requests(db, body.request_ids)
         batch = None
         trip_key = None

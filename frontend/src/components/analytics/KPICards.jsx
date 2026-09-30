@@ -5,16 +5,19 @@ import {
 
 function SingleKPICard({ label, value, unit = '', icon: Icon, iconBg, borderColor }) {
   return (
-    <div className={`bg-gray-800 border ${borderColor || 'border-gray-700'} rounded-xl p-4 shadow-sm hover:border-gray-600 transition-all`}>
-      <div className="flex items-center justify-between">
+    <div className="glass-card rounded-[20px] p-4 lg:p-5 relative overflow-hidden group">
+      <div className="flex items-center justify-between relative z-10">
         <div>
-          <p className="text-xs text-gray-400 font-medium truncate">{label}</p>
-          <div className="flex items-baseline gap-1.5 mt-1">
-            <span className="text-2xl font-bold text-white font-mono">{value}</span>
-            {unit && <span className="text-xs text-gray-400 font-normal">{unit}</span>}
+          <p className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider">{label}</p>
+          <div className="flex items-baseline gap-1 mt-1.5">
+            <span className="text-[26px] font-display font-semibold text-white tracking-tight">{value}</span>
+            {unit && <span className="text-xs text-brand-text-muted font-medium ml-1">{unit}</span>}
           </div>
         </div>
-        <div className={`p-3 rounded-lg ${iconBg || 'bg-indigo-600/20 text-indigo-400'}`}>
+        <div
+          className="p-2.5 rounded-[12px] border flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110"
+          style={{ borderColor: borderColor ? borderColor.replace('border-', '') : 'rgba(255,255,255,0.1)', ...iconBg }}
+        >
           <Icon className="h-5 w-5" />
         </div>
       </div>
@@ -28,57 +31,57 @@ export default function KPICards({ kpi = {} }) {
       label: 'Total Requests',
       value: kpi.total_requests ?? 0,
       icon: FileText,
-      iconBg: 'bg-blue-500/10 text-blue-400',
-      borderColor: 'border-blue-500/20',
+      iconBg: { backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa' },
+      borderColor: 'rgba(59, 130, 246, 0.2)',
     },
     {
       label: 'Pending Requests',
       value: kpi.pending_requests ?? 0,
       icon: Clock,
-      iconBg: 'bg-amber-500/10 text-amber-400',
-      borderColor: 'border-amber-500/20',
+      iconBg: { backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24' },
+      borderColor: 'rgba(245, 158, 11, 0.2)',
     },
     {
       label: 'Completed Requests',
       value: kpi.completed_requests ?? 0,
       icon: CheckCircle2,
-      iconBg: 'bg-green-500/10 text-green-400',
-      borderColor: 'border-green-500/20',
+      iconBg: { backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#4ade80' },
+      borderColor: 'rgba(34, 197, 94, 0.2)',
     },
     {
       label: 'Requests / Min (RPM)',
       value: kpi.requests_per_minute ?? 0,
       unit: 'req/m',
       icon: Gauge,
-      iconBg: 'bg-cyan-500/10 text-cyan-400',
-      borderColor: 'border-cyan-500/20',
+      iconBg: { backgroundColor: 'rgba(6, 182, 212, 0.1)', color: '#22d3ee' },
+      borderColor: 'rgba(6, 182, 212, 0.2)',
     },
     {
       label: 'Avg Processing Time',
       value: kpi.avg_processing_time_sec ?? 0,
       unit: 'sec',
       icon: Timer,
-      iconBg: 'bg-purple-500/10 text-purple-400',
-      borderColor: 'border-purple-500/20',
+      iconBg: { backgroundColor: 'rgba(168, 85, 247, 0.1)', color: '#c084fc' },
+      borderColor: 'rgba(168, 85, 247, 0.2)',
     },
     {
       label: 'Total Providers',
       value: kpi.total_providers ?? 0,
       icon: Building2,
-      iconBg: 'bg-indigo-500/10 text-indigo-400',
-      borderColor: 'border-indigo-500/20',
+      iconBg: { backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' },
+      borderColor: 'rgba(99, 102, 241, 0.2)',
     },
     {
       label: 'Active Providers',
       value: kpi.active_providers ?? 0,
       icon: UserCheck,
-      iconBg: 'bg-emerald-500/10 text-emerald-400',
-      borderColor: 'border-emerald-500/20',
+      iconBg: { backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#34d399' },
+      borderColor: 'rgba(16, 185, 129, 0.2)',
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-5 mb-6">
       {cards.map((card) => (
         <SingleKPICard key={card.label} {...card} />
       ))}

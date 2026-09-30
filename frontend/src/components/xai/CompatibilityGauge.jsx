@@ -16,8 +16,8 @@ export default function CompatibilityGauge({ score = 89.5, confidence = 92 }) {
   else gaugeColor = '#ef4444'; // red
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-sm flex flex-col items-center justify-between">
-      <div className="w-full flex items-center justify-between border-b border-gray-700 pb-3 mb-3">
+    <div className="glass-card rounded-xl p-5 shadow-sm flex flex-col items-center justify-between">
+      <div className="w-full flex items-center justify-between border-b border-white/10 pb-3 mb-3">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <Gauge className="h-4 w-4 text-cyan-400" />
           Compatibility Gauge
@@ -32,7 +32,7 @@ export default function CompatibilityGauge({ score = 89.5, confidence = 92 }) {
           <path
             d="M 15 80 A 60 60 0 0 1 135 80"
             fill="none"
-            stroke="#374151"
+            stroke="#ffffff20"
             strokeWidth="12"
             strokeLinecap="round"
           />
@@ -61,7 +61,7 @@ export default function CompatibilityGauge({ score = 89.5, confidence = 92 }) {
       </div>
 
       {/* Confidence Pill */}
-      <div className="w-full bg-gray-900/80 border border-gray-700 rounded-lg p-3 flex items-center justify-between text-xs mt-2">
+      <div className="w-full bg-black/40 border border-white/10 rounded-lg p-3 flex items-center justify-between text-xs mt-2">
         <span className="text-gray-400 flex items-center gap-1.5 font-medium">
           <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Model Confidence
         </span>

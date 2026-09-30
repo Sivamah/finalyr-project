@@ -344,6 +344,7 @@ def _make_batch_row(
     factor_details: Optional[Dict[str, Any]] = None,
     status: str = "Pending",
     estimated_delay_min: float = 0.0,
+    decision_confidence: Optional[float] = None,
 ) -> DMFEBatch:
     """
     Build a DMFEBatch row with the standard JSON encoding used by both the
@@ -362,6 +363,7 @@ def _make_batch_row(
         predicted_utilization_pct=(factor_details or {}).get(
             "capacity_utilization_pct", 0.0
         ),
+        decision_confidence=decision_confidence,
     )
 
 
@@ -679,6 +681,7 @@ class DecisionEngine:
                     factor_details=cg.result.factor_details,
                     status=status,
                     estimated_delay_min=cg.result.estimated_delay_min,
+                    decision_confidence=cg.result.decision_confidence,
                 )
                 db.add(batch)
                 db.flush()  # get batch.id before commit

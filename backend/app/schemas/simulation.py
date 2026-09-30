@@ -1,5 +1,5 @@
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 
 
@@ -45,8 +45,7 @@ class SimulationQueueItem(BaseModel):
     status: str = "Pending"
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SimulationHistoryItem(BaseModel):
@@ -64,8 +63,7 @@ class SimulationHistoryItem(BaseModel):
     created_at: Optional[datetime] = None
     processing_duration_sec: float = 0.0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SimulationQueueResponse(BaseModel):

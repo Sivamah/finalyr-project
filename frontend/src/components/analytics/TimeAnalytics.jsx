@@ -11,64 +11,64 @@ export default function TimeAnalytics({ data = {} }) {
   const hourlyData = data.hourly_distribution || [];
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-xl p-5 shadow-sm mb-6">
+    <div className="glass-panel rounded-[20px] p-5 lg:p-6 shadow-sm mb-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 border-b border-gray-700 pb-3">
-        <h3 className="text-base font-bold text-white flex items-center gap-2">
+      <div className="flex items-center justify-between mb-5 border-b border-white/10 pb-4">
+        <h3 className="text-base font-display font-semibold text-white flex items-center gap-2">
           <Clock className="h-5 w-5 text-yellow-400" />
           Time & Temporal Analytics
         </h3>
-        <span className="text-xs bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-2.5 py-1 rounded-full font-semibold">
+        <span className="text-[10px] bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">
           Latency & Hourly Load
         </span>
       </div>
 
       {/* Top 3 Summary Metric Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5 mb-8">
         {/* Avg Queue Waiting Time */}
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-4 flex items-center justify-between">
+        <div className="glass-card bg-black/20 border border-white/5 rounded-[16px] p-4 lg:p-5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-400 font-medium">Avg Queue Waiting Time</p>
+            <p className="text-[10px] text-brand-text-muted font-bold uppercase tracking-wider">Avg Queue Waiting Time</p>
             <p className="text-2xl font-bold text-yellow-400 font-mono mt-1">
-              {avgWait} <span className="text-xs font-normal text-gray-400">sec</span>
+              {avgWait} <span className="text-xs font-medium text-brand-text-muted">sec</span>
             </p>
           </div>
-          <div className="p-3 bg-yellow-500/10 rounded-lg text-yellow-400">
-            <Clock className="h-6 w-6" />
+          <div className="p-3 bg-yellow-500/10 rounded-[12px] text-yellow-400">
+            <Clock className="h-5 w-5" />
           </div>
         </div>
 
         {/* Avg Completion Time */}
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-4 flex items-center justify-between">
+        <div className="glass-card bg-black/20 border border-white/5 rounded-[16px] p-4 lg:p-5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-400 font-medium">Avg Completion Time</p>
-            <p className="text-2xl font-bold text-green-400 font-mono mt-1">
-              {avgCompletion} <span className="text-xs font-normal text-gray-400">sec</span>
+            <p className="text-[10px] text-brand-text-muted font-bold uppercase tracking-wider">Avg Completion Time</p>
+            <p className="text-2xl font-bold text-brand-success font-mono mt-1">
+              {avgCompletion} <span className="text-xs font-medium text-brand-text-muted">sec</span>
             </p>
           </div>
-          <div className="p-3 bg-green-500/10 rounded-lg text-green-400">
-            <Timer className="h-6 w-6" />
+          <div className="p-3 bg-brand-success/10 rounded-[12px] text-brand-success">
+            <Timer className="h-5 w-5" />
           </div>
         </div>
 
         {/* Peak Request Generation Hour */}
-        <div className="bg-gray-900/60 border border-gray-700/60 rounded-xl p-4 flex items-center justify-between">
+        <div className="glass-card bg-black/20 border border-white/5 rounded-[16px] p-4 lg:p-5 flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-400 font-medium">Peak Generation Hour</p>
-            <p className="text-xl font-bold text-indigo-400 font-mono mt-1 truncate max-w-[180px]" title={peakHour}>
+            <p className="text-[10px] text-brand-text-muted font-bold uppercase tracking-wider">Peak Generation Hour</p>
+            <p className="text-xl font-bold text-brand-primary font-mono mt-1 truncate max-w-[180px]" title={peakHour}>
               {peakHour}
             </p>
           </div>
-          <div className="p-3 bg-indigo-500/10 rounded-lg text-indigo-400">
-            <Zap className="h-6 w-6" />
+          <div className="p-3 bg-brand-primary/10 rounded-[12px] text-brand-primary">
+            <Zap className="h-5 w-5" />
           </div>
         </div>
       </div>
 
       {/* Hourly Request Distribution Chart */}
       <div>
-        <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-indigo-400" /> Hourly Request Distribution (24 Hours)
+        <h4 className="text-[10px] font-bold text-brand-text-muted uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Calendar className="h-3.5 w-3.5 text-brand-primary" /> Hourly Request Distribution (24 Hours)
         </h4>
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
